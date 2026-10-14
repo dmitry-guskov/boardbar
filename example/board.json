@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "fixture": true,
+  "generated_at": "2026-10-14T07:00:00-04:00",
+  "generated_by": "example",
+  "timezone": "America/Toronto",
+  "next_refresh_at": "2026-10-15T07:00:00-04:00",
+  "brief": "Thesis chapter 2 draft goes to your advisor today; the problem set you're grading is due back Friday.",
+  "coverage": [
+    {"source": "Email", "status": "checked", "checked_at": "2026-10-14T07:00:00-04:00"},
+    {"source": "Notes", "status": "checked", "checked_at": "2026-10-14T07:00:00-04:00"},
+    {"source": "Lab Slack", "status": "unavailable", "checked_at": "2026-10-14T07:00:00-04:00", "note": "Token expired"},
+    {"source": "Calendar", "status": "not_configured"}
+  ],
+  "areas": {
+    "research": {"label": "Research"},
+    "teaching": {"label": "Teaching"},
+    "lab": {"label": "Lab work"},
+    "life": {"label": "Life admin"}
+  },
+  "top_ids": ["thesis-ch2-draft", "grade-ps3", "visa-letter"],
+  "tasks": [
+    {"id": "thesis-ch2-draft", "title": "Send thesis chapter 2 draft to advisor", "area": "research", "project_id": "thesis", "state": "doing", "basis": "confirmed", "due": "2026-10-14", "status_as_of": "2026-10-13", "why": "Agreed at last week's meeting", "note_path": "Projects/Thesis.md"},
+    {"id": "grade-ps3", "title": "Grade problem set 3", "short": "Grade PS3", "area": "teaching", "state": "todo", "basis": "confirmed", "due": "2026-10-16T17:00:00-04:00", "status_as_of": "2026-10-13"},
+    {"id": "visa-letter", "title": "Ask department for conference visa letter", "area": "life", "state": "todo", "basis": "recommendation", "why": "Workshop is 5 weeks out; letters usually take 2–3 weeks"},
+    {"id": "reviewer-response", "title": "Co-author edits on rebuttal", "area": "research", "project_id": "paper-sparse", "state": "waiting", "basis": "confirmed", "since": "2026-10-06", "waiting_on": "Co-author", "status_as_of": "2026-10-13"},
+    {"id": "gpu-quota", "title": "Cluster GPU quota increase", "area": "lab", "state": "waiting", "basis": "confirmed", "since": "2026-10-10", "waiting_on": "IT support", "status_as_of": "2026-10-12"},
+    {"id": "benchmark-rerun", "title": "Rerun ablation with fixed seed", "short": "Ablation rerun", "area": "lab", "project_id": "paper-sparse", "state": "doing", "basis": "inference", "status_as_of": "2026-10-13"},
+    {"id": "workshop-talk", "title": "Workshop talk", "area": "research", "state": "todo", "basis": "confirmed", "event_at": "2026-11-18", "status_as_of": "2026-10-01"},
+    {"id": "rebuttal-deadline", "title": "Submit rebuttal", "area": "research", "project_id": "paper-sparse", "state": "todo", "basis": "confirmed", "due": "2026-10-24", "status_as_of": "2026-10-13"},
+    {"id": "ta-hours", "title": "Move TA office hours", "area": "teaching", "state": "unknown", "basis": "confirmed", "open_since": "2026-09-20", "status_as_of": "2026-09-20"},
+    {"id": "dentist", "title": "Book dentist appointment", "area": "life", "state": "todo", "basis": "confirmed", "open_since": "2026-09-02", "status_as_of": "2026-09-02"},
+    {"id": "dataset-cleanup", "title": "Archive old dataset versions", "area": "lab", "state": "done", "basis": "confirmed", "status_as_of": "2026-10-13"},
+    {"id": "reading-group", "title": "Pick paper for reading group", "area": "research", "state": "deferred", "basis": "confirmed", "status_as_of": "2026-09-30"}
+  ],
+  "projects": [
+    {"id": "thesis", "name": "Thesis", "area": "research", "state": "active", "last_evidenced_work": {"date": "2026-10-13", "source": "Chapter 2 edits"}, "next": {"text": "Send chapter 2 draft", "basis": "confirmed"}, "note_path": "Projects/Thesis.md"},
+    {"id": "paper-sparse", "name": "Sparse attention paper", "area": "research", "state": "active", "last_evidenced_work": {"date": "2026-10-09", "source": "Rebuttal outline"}},
+    {"id": "ta-intro-ml", "name": "TA · Intro to ML", "area": "teaching", "state": "active", "last_evidenced_work": {"date": "2026-10-12", "source": "PS3 released"}},
+    {"id": "side-tool", "name": "Plotting library side project", "area": "lab", "state": "parked", "last_evidenced_work": {"date": "2026-08-30", "source": "Last commit"}},
+    {"id": "survey", "name": "Literature survey", "area": "research", "state": "unknown", "state_note": "Milestone unclear"}
+  ]
+}

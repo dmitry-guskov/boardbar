@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board</title>
+<style>
+:root{--bg:#fbfbfa;--card:#f1f0ec;--line:rgba(0,0,0,.09);--text:#1d1d1b;--sub:#5f5e5a;--muted:#8a8984;--warn-bg:#faeeda;--warn:#854f0b;--bad-bg:#fcebeb;--bad:#a32d2d;--ok:#3b6d11;--accent:#185fa5;
+--a1:#7F77DD;--a2:#1D9E75;--a3:#D85A30;--a4:#888780;--a5:#378ADD;--a6:#D4537E}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1f1f1e;--card:#2a2a28;--line:rgba(255,255,255,.1);--text:#ecebe6;--sub:#b4b2a9;--muted:#888780;--warn-bg:#412402;--warn:#fac775;--bad-bg:#501313;--bad:#f7c1c1;--ok:#97c459;--accent:#85b7eb;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1f1f1e;--card:#2a2a28;--line:rgba(255,255,255,.1);--text:#ecebe6;--sub:#b4b2a9;--muted:#888780;--warn-bg:#412402;--warn:#fac775;--bad-bg:#501313;--bad:#f7c1c1;--ok:#97c459;--accent:#85b7eb;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;-webkit-user-select:none;user-select:none}
+body{padding:12px 14px 10px;max-width:560px;margin:0 auto}
+h2{font-size:12px;font-weight:500;color:var(--sub);margin:14px 0 4px;display:flex;justify-content:space-between}
+.tabs{display:flex;gap:4px;background:var(--card);border-radius:7px;padding:2px;margin:8px 0 2px}
+.tabs button{flex:1;border:0;background:transparent;color:var(--sub);font:inherit;padding:4px;border-radius:5px;cursor:pointer}
+.tabs button.on{background:var(--bg);color:var(--text)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex:none}
+.row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .t{flex:1;min-width:0}
+.row.link{cursor:pointer}.row.link:hover .t{color:var(--accent)}
+.sub{font-size:11.5px;color:var(--muted)}
+.pill{font-size:11px;padding:1px 7px;border-radius:6px;white-space:nowrap;background:var(--card);color:var(--sub)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.tag{font-size:10.5px;color:var(--muted);border:.5px solid var(--line);border-radius:5px;padding:0 5px;margin-left:4px;white-space:nowrap}
+.banner{border-radius:7px;padding:7px 10px;margin-bottom:8px;font-size:12px}
+.banner.warn{background:var(--warn-bg);color:var(--warn)}.banner.bad{background:var(--bad-bg);color:var(--bad)}
+.box{background:var(--card);border-radius:8px;padding:2px 10px}
+details summary{cursor:pointer;color:var(--sub);font-size:12px;margin-top:12px}
+.foot{margin-top:12px;padding-top:8px;border-top:.5px solid var(--line);font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.foot a{color:var(--sub);cursor:pointer;text-decoration:none}.foot a:hover{color:var(--accent)}
+.cov{display:inline-flex;align-items:center;gap:4px}
+.tl{position:relative}
+.lane{display:flex;height:46px;border-bottom:.5px solid var(--line)}
+.lane .nm{width:86px;white-space:nowrap;font-size:12px;padding-top:4px;display:flex;gap:5px;align-items:baseline}
+.lane .tr{flex:1;position:relative}
+.mk{position:absolute;top:4px;transform:translateX(-5px);cursor:default}
+.mk .lb{position:absolute;top:13px;left:-2px;white-space:nowrap;font-size:10.5px;color:var(--sub);max-width:64px;overflow:hidden;text-overflow:ellipsis}
+.bar{position:absolute;height:6px;border-radius:3px}
+.hb{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px}
+.hb .n{width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb .track{flex:1;height:5px;border-radius:3px;background:var(--card)}
+.hb .v{width:62px;text-align:right;color:var(--muted);font-size:11px}
+.empty{color:var(--muted);padding:6px 0;font-size:12px}
+</style>
+</head>
+<body>
+<div id="app"><div class="empty">Loading…</div></div>
+<script>
+const PALETTE=['var(--a1)','var(--a2)','var(--a3)','var(--a4)','var(--a5)','var(--a6)'];
+let payload=null,tab='today';
+try{tab=localStorage.getItem('tab')||'today'}catch(e){}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const day=s=>{const d=new Date(s.length===10?s+'T12:00:00':s);return new Date(d.getFullYear(),d.getMonth(),d.getDate())};
+const today=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate())};
+const diff=s=>Math.round((day(s)-today())/864e5);
+const fmt=s=>day(s).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+const fmtTime=s=>new Date(s).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+const APP=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.app);
+const post=m=>{try{window.webkit.messageHandlers.app.postMessage(m)}catch(e){if(m.open)console.log('open',m.open)}};
+function color(b,a){const k=Object.keys((b&&b.areas)||{});const i=k.indexOf(a);return i<0?'var(--a5)':PALETTE[i%PALETTE.length]}
+function areaLabel(b,a){return (b.areas&&b.areas[a]&&b.areas[a].label)||a||'Other'}
+function dueChip(t){
+  const st=t.state;
+  if(t.due){const n=diff(t.due);
+    if(n<0)return st==='done'?`<span class="pill">done</span>`:st==='unknown'?`<span class="pill">was due ${fmt(t.due)}</span>`:`<span class="pill bad">past due ${fmt(t.due)}</span>`;
+    return `<span class="pill ${n<=3?'warn':''}">${n===0?'today':n===1?'tomorrow':'in '+n+'d'} · ${fmt(t.due)}</span>`}
+  if(t.event_at){const n=diff(t.event_at);return `<span class="pill">event ${fmt(t.event_at)}${n>=0?' · '+n+'d':''}</span>`}
+  if(t.state==='waiting'&&t.since)return `<span class="sub">${-diff(t.since)}d</span>`;
+  if(t.open_since)return `<span class="sub">open ${-diff(t.open_since)}d</span>`;
+  return ''}
+function tags(t){let s='';
+  if(t.basis==='recommendation')s+='<span class="tag">suggested</span>';
+  if(t.basis==='inference')s+='<span class="tag">inferred</span>';
+  if(t.state==='unknown')s+='<span class="tag">status ?</span>';
+  if(t.priority==='high')s+='<span class="tag">high</span>';
+  return s}
+function tip(t){const p=[];if(t.why)p.push(t.why);if(t.status_as_of)p.push('Status as of '+fmt(t.status_as_of));
+  (t.sources||[]).forEach(s=>p.push('Source: '+s.ref+(s.date?' ('+fmt(s.date)+')':'')+(s.confidence?' · '+s.confidence:'')));
+  if(t.note_path&&APP)p.push('Click to open in Obsidian');return esc(p.join('\n'))}
+function row(b,t,extra){return `<div class="row ${t.note_path&&APP?'link':''}" title="${tip(t)}" ${t.note_path&&APP?`data-note="${esc(t.note_path)}"`:''}>
+  <span class="dot" style="background:${color(b,t.area)}"></span>
+  <div class="t">${esc(t.title)}${tags(t)}${extra||''}</div>${dueChip(t)}</div>`}
+function healthBanner(h,b){
+  if(!h||h.state==='ok')return '';
+  const cls=h.state==='stale'?'warn':'bad';
+  return `<div class="banner ${cls}">${esc(h.message||h.state)}${b?' · showing snapshot from '+fmtTime(b.generated_at):''}</div>`}
+
+function vToday(b){
+  const tasks=b.tasks||[],byId=Object.fromEntries(tasks.map(t=>[t.id,t]));
+  const top=(b.top_ids||[]).map(i=>byId[i]).filter(Boolean).slice(0,3);
+  const topSet=new Set(top.map(t=>t.id));
+  const open=t=>!['done','cancelled','deferred'].includes(t.state);
+  const upcoming=tasks.filter(t=>open(t)&&!topSet.has(t.id)&&(t.due||t.event_at)&&diff(t.due||t.event_at)<=28&&diff(t.due||t.event_at)>=-14)
+    .sort((x,y)=>day(x.due||x.event_at)-day(y.due||y.event_at));
+  const waiting=tasks.filter(t=>t.state==='waiting'&&!topSet.has(t.id)).sort((x,y)=>day(x.since||'2100-01-01')-day(y.since||'2100-01-01'));
+  const doing=tasks.filter(t=>t.state==='doing'&&!topSet.has(t.id));
+  const shown=new Set([...topSet,...upcoming.map(t=>t.id),...waiting.map(t=>t.id),...doing.map(t=>t.id)]);
+  const rest=tasks.filter(t=>open(t)&&!shown.has(t.id));
+  const doneRecent=tasks.filter(t=>t.state==='done'&&t.status_as_of&&diff(t.status_as_of)>=-2);
+  let h='';
+  if(b.brief)h+=`<div style="font-size:13.5px;margin:6px 0 2px">${esc(b.brief)}</div>`;
+  h+=`<h2><span>Today</span><span>${top.length}</span></h2><div class="box">${top.length?top.map(t=>row(b,t,t.why?`<div class="sub">${esc(t.why)}</div>`:'')).join(''):'<div class="empty">Nothing picked for today.</div>'}</div>`;
+  if(doing.length)h+=`<h2><span>In progress</span><span>${doing.length}</span></h2>${doing.map(t=>row(b,t)).join('')}`;
+  if(upcoming.length)h+=`<h2><span>Coming up · 4 weeks</span><span>${upcoming.length}</span></h2>${upcoming.map(t=>row(b,t)).join('')}`;
+  if(waiting.length)h+=`<h2><span>Waiting on</span><span>${waiting.length}</span></h2>${waiting.map(t=>row(b,t,t.waiting_on?`<span class="sub"> · ${esc(t.waiting_on)}</span>`:'')).join('')}`;
+  if(doneRecent.length)h+=`<h2><span>Recently done</span><span>${doneRecent.length}</span></h2>${doneRecent.map(t=>row(b,t)).join('')}`;
+  if(rest.length)h+=`<details><summary>Everything else open (${rest.length})</summary>${rest.map(t=>row(b,t)).join('')}</details>`;
+  return h}
+
+function vTimeline(b){
+  const tasks=(b.tasks||[]).filter(t=>!['cancelled','deferred'].includes(t.state));
+  const t0=today();const start=new Date(t0);start.setDate(start.getDate()-((start.getDay()+6)%7)-7);
+  const span=42,pct=s=>Math.max(0,Math.min(100,(day(s)-start)/864e5/span*100));
+  const nowP=(t0-start)/864e5/span*100;
+  const areas=Object.keys(b.areas||{});
+  tasks.forEach(t=>{if(t.area&&!areas.includes(t.area))areas.push(t.area)});
+  let weeks='';for(let i=0;i<6;i++){const d=new Date(start);d.setDate(d.getDate()+7*i);
+    weeks+=`<div style="position:absolute;left:${i/6*100}%;top:0;bottom:0;border-left:.5px solid var(--line)"><span class="sub" style="position:absolute;top:-17px;left:3px;white-space:nowrap;font-size:10.5px">${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span></div>`}
+  const lanes=areas.map(a=>{let m='';
+    tasks.filter(t=>t.area===a).forEach(t=>{
+      const c=color(b,a);
+      if(t.state==='waiting'&&t.since){const l=pct(t.since);m+=`<div class="bar" title="${esc(t.title)} — waiting since ${fmt(t.since)}" style="left:${l}%;width:${Math.max(1,nowP-l)}%;top:22px;background:${c};opacity:.35"></div>`}
+      if(t.state==='doing'){const l=pct(t.status_as_of||t0.toISOString());m+=`<div class="bar" title="${esc(t.title)} — in progress" style="left:${Math.min(l,nowP-2)}%;width:${Math.max(2,nowP-Math.min(l,nowP-2))}%;top:30px;background:${c}"></div>`}
+      const when=t.due||t.event_at;if(!when)return;const p=pct(when);if(day(when)<start||(day(when)-start)/864e5>span)return;
+      const shape=t.due?'transform:rotate(45deg)':'border-radius:50%';const past=diff(when)<0&&!['done','unknown'].includes(t.state);
+      m+=`<div class="mk" style="left:${p}%" title="${tip(t)}"><div style="width:10px;height:10px;${shape};background:${past?'var(--bad)':c};${t.state==='done'?'opacity:.4':''}"></div><span class="lb" style="${p>78?'left:auto;right:-2px;text-align:right':''}">${esc((t.short||t.title.split(/[ ·–(]+/).slice(0,2).join(' ')))}</span></div>`});
+    return `<div class="lane"><div class="nm"><span class="dot" style="background:${color(b,a)}"></span>${esc(areaLabel(b,a))}</div><div class="tr">${m}</div></div>`}).join('');
+  const projs=(b.projects||[]).slice().sort((x,y)=>{const o={active:0,unknown:1,parked:2,completed:3};return (o[x.state]??4)-(o[y.state]??4)||((x.last_evidenced_work?-diff(x.last_evidenced_work.date):999)-(y.last_evidenced_work?-diff(y.last_evidenced_work.date):999))});
+  const known=projs.filter(p=>p.state==='active'||p.last_evidenced_work),unk=projs.filter(p=>!(p.state==='active'||p.last_evidenced_work));
+  const hbRow=p=>{const lw=p.last_evidenced_work;const n=lw?-diff(lw.date):null;
+    const c=n==null?'var(--muted)':n<=7?'var(--ok)':n<=21?'var(--warn)':'var(--bad)';
+    const tipT=[p.state_note,lw?'Last evidenced work: '+lw.source+' ('+fmt(lw.date)+')':'No evidenced activity date',p.next?'Next ('+(p.next.basis||'')+'): '+p.next.text:'',p.note_path&&APP?'Click to open in Obsidian':''].filter(Boolean).join('\n');
+    return `<div class="hb" style="${p.note_path&&APP?'cursor:pointer':''}" title="${esc(tipT)}" ${p.note_path&&APP?`data-note="${esc(p.note_path)}"`:''}>
+      <span class="dot" style="background:${color(b,p.area)}"></span><span class="n" style="color:${p.state==='active'?'var(--text)':'var(--muted)'}">${esc(p.name)}</span>
+      <div class="track">${n==null?'':`<div style="width:${Math.min(100,Math.max(3,n/42*100))}%;height:5px;border-radius:3px;background:${c}"></div>`}</div>
+      <span class="v">${n==null?'unknown':n===0?'today':n+'d ago'}</span></div>`};
+  const hb=known.map(hbRow).join('')+(unk.length?`<details><summary>No activity date or status (${unk.length})</summary>${unk.map(hbRow).join('')}</details>`:'');
+  return `<div class="tl" style="display:flex;margin-top:24px"><div style="width:86px"></div><div style="flex:1;position:relative;height:0">${weeks}<div style="position:absolute;left:${nowP}%;top:-3px;height:${46*areas.length+3}px;border-left:1.5px solid var(--bad)"></div></div></div>${lanes}
+  <div class="sub" style="margin:5px 0 4px">◆ deadline · ● event · thick bar in progress · faint bar waiting · red line today</div>
+  <h2><span>Project heartbeat · days since last evidenced work</span></h2>${hb||'<div class="empty">No projects in snapshot.</div>'}`}
+
+function render(p){
+  payload=p||payload;const b=payload&&payload.board,h=payload&&payload.health;
+  const app=document.getElementById('app');
+  if(!b){app.innerHTML=healthBanner(h||{state:'missing',message:'No board snapshot yet.'})+'<div class="empty">The morning curator writes <code>07 Meta/board.json</code>. Nothing to show until then.</div>'+foot(null,h);bind();return}
+  const now=new Date();
+  let html=healthBanner(h,b);
+  if(b.fixture)html+='<div class="banner warn">Example data — not a real curator snapshot</div>';
+  html+=`<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:600">${now.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</span><span class="sub">${(b.tasks||[]).filter(t=>!['done','cancelled','deferred'].includes(t.state)).length} open</span></div>`;
+  html+=`<div class="tabs"><button data-tab="today" class="${tab==='today'?'on':''}">Today</button><button data-tab="timeline" class="${tab==='timeline'?'on':''}">Timeline</button></div>`;
+  html+=tab==='timeline'?vTimeline(b):vToday(b);
+  html+=foot(b,h);app.innerHTML=html;bind()}
+function foot(b,h){
+  const cov=b&&b.coverage?b.coverage.map(c=>{const col={checked:'var(--ok)',partial:'var(--warn)',unavailable:'var(--bad)',not_configured:'var(--muted)'}[c.status]||'var(--muted)';
+    return `<span class="cov" title="${esc(c.source+': '+c.status.replace('_',' ')+(c.note?' — '+c.note:'')+(c.checked_at?' · '+fmtTime(c.checked_at):''))}"><span class="dot" style="width:6px;height:6px;background:${col}"></span>${esc(c.source.split(' (')[0])}</span>`}).join(''):'';
+  return `<div class="foot">${b?`<span>Updated ${fmtTime(b.generated_at)}${b.next_refresh_at?' · next '+fmtTime(b.next_refresh_at):''}</span>`:''}<span style="flex-basis:100%;height:0"></span>${cov}${APP?'<span style="flex:1"></span><a data-act="reload">Reload</a><a data-act="openfile">JSON</a><a data-act="quit">Quit</a>':''}</div>`}
+function bind(){
+  document.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>{tab=e.dataset.tab;try{localStorage.setItem('tab',tab)}catch(x){}render()});
+  document.querySelectorAll('[data-note]').forEach(e=>e.onclick=()=>post({open:e.dataset.note}));
+  document.querySelectorAll('[data-act]').forEach(e=>e.onclick=()=>post({act:e.dataset.act}))}
+window.render=render;
+function webHealth(b){const now=Date.now();
+  if(b.fixture)return {state:'ok'};
+  if(b.next_refresh_at){return now>new Date(b.next_refresh_at).getTime()+3*36e5?{state:'stale',message:'Expected refresh has not arrived'}:{state:'ok'}}
+  return now-new Date(b.generated_at).getTime()>36*36e5?{state:'stale',message:'Snapshot is older than 36h'}:{state:'ok'}}
+if(!APP){
+  const src=new URLSearchParams(location.search).get('board')||'board.json';
+  fetch(src).then(r=>r.json()).then(board=>render({board,health:webHealth(board)})).catch(e=>render({board:null,health:{state:'invalid',message:'Could not load '+src}}))}
+else post({act:'ready'});
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+/BoardBar.app/
+.DS_Store
+/board.json
+/board.tmp.json
