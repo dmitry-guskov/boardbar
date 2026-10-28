@@ -1,0 +1,81 @@
+{
+  "generated_at": "2026-10-13T07:00:00-04:00",
+  "tasks": [
+    {
+      "id": "thesis-ch2-draft",
+      "title": "Send thesis chapter 2 draft to advisor",
+      "area": "research",
+      "state": "doing",
+      "due": "2026-10-14"
+    },
+    {
+      "id": "grade-ps3",
+      "title": "Grade problem set 3",
+      "area": "teaching",
+      "state": "todo",
+      "due": "2026-10-16T17:00:00-04:00"
+    },
+    {
+      "id": "reviewer-response",
+      "title": "Co-author edits on rebuttal",
+      "area": "research",
+      "state": "waiting"
+    },
+    {
+      "id": "gpu-quota",
+      "title": "Cluster GPU quota increase",
+      "area": "lab",
+      "state": "waiting"
+    },
+    {
+      "id": "benchmark-rerun",
+      "title": "Rerun ablation with fixed seed",
+      "area": "lab",
+      "state": "doing"
+    },
+    {
+      "id": "workshop-talk",
+      "title": "Workshop talk",
+      "area": "research",
+      "state": "todo",
+      "event_at": "2026-11-18"
+    },
+    {
+      "id": "rebuttal-deadline",
+      "title": "Submit rebuttal",
+      "area": "research",
+      "state": "todo",
+      "due": "2026-10-22"
+    },
+    {
+      "id": "ta-hours",
+      "title": "Move TA office hours",
+      "area": "teaching",
+      "state": "unknown"
+    },
+    {
+      "id": "dentist",
+      "title": "Book dentist appointment",
+      "area": "life",
+      "state": "todo"
+    },
+    {
+      "id": "dataset-cleanup",
+      "title": "Archive old dataset versions",
+      "area": "lab",
+      "state": "doing"
+    },
+    {
+      "id": "reading-group",
+      "title": "Pick paper for reading group",
+      "area": "research",
+      "state": "deferred"
+    },
+    {
+      "id": "old-poster",
+      "title": "Print lab-day poster",
+      "state": "todo",
+      "area": "lab"
+    }
+  ]
+}

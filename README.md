@@ -9,7 +9,11 @@ BoardBar doesn't decide anything. An AI agent that already reads your email and 
   <img src="docs/timeline.jpg" width="360" alt="Timeline view: six-week lanes per area and a project heartbeat">
 </p>
 
-*Screenshots use the made-up data in [`example/board.json`](example/board.json).*
+**Double-click the popover (or click Expand ↗)** to open the full board in its own window, which can go full screen:
+
+<img src="docs/expanded.jpg" width="760" alt="Expanded view: decisions and today, a 10-week timeline with project milestones and a filterable table of every item, project details, reading and sources">
+
+*Screenshots use the made-up data in [`example/board.json`](example/board.json). Example files (`"fixture": true`) are shifted to today's date so the demo always looks current.*
 
 ## How it fits together
 
@@ -28,6 +32,13 @@ morning agent ──► board.tmp.json ──► validate_board.py ──► boa
 - **The app** draws two views:
   - **Today:** your top 3, in progress, coming up (4 weeks), waiting on, recently done.
   - **Timeline:** 6 weeks with one lane per area, and a heartbeat showing days since each project last saw real work.
+
+The **expanded view** adds:
+- "Needs your decision"
+- a list of what changed since the previous snapshot. The app works this out by comparing task IDs; a task that disappears is shown as "no longer listed", never as done.
+- a 10-week timeline with a lane for each project that has milestones
+- a table of every item, which you can filter by area or state and sort by date or by how old its status is
+- project next steps, reading, and which sources were checked
 
 It warns you when the snapshot is late (3h past `next_refresh_at`), missing, or invalid. If the new file is invalid, it keeps showing the last good snapshot.
 
@@ -50,7 +61,13 @@ To try it without installing:
 open BoardBar.app --args --board "$PWD/example/board.json"
 ```
 
-You can also preview the view in a browser: run `python3 -m http.server` in this folder, then open `http://localhost:8000/board.html?board=example/board.json`.
+Open the full board directly with `--expanded`. `--snapshot out.png` saves a PNG of the view, which is how the screenshots here were made:
+
+```bash
+./BoardBar.app/Contents/MacOS/BoardBar --board "$PWD/example/board.json" --expanded --snapshot docs/expanded.png
+```
+
+You can also preview the view in a browser: run `python3 -m http.server` in this folder, then open `http://localhost:8000/board.html?board=example/board.json&previous=example/previous.json`. A window 900px or wider shows the full board.
 
 ## For the agent that writes `board.json`
 
@@ -70,7 +87,7 @@ If `note_path` is relative to an Obsidian vault, clicking a task opens that note
 
 | File | What it is |
 |---|---|
-| `BoardBar.swift` | Menu-bar shell: SwiftUI `MenuBarExtra` with a `WKWebView`. Watches the file every 30s and caches the last good snapshot. |
+| `BoardBar.swift` | Menu-bar shell: SwiftUI `MenuBarExtra` with a `WKWebView`. Watches the file every 30s, caches the last good snapshot and the previous one (for the change list), and opens the expanded window. |
 | `board.html` | Both views, plain HTML and JS, light and dark. Also works standalone in a browser. |
 | `validate_board.py` | Format v1 validator and atomic publisher (standard library only). |
 | `example/board.json` | Made-up sample data. |

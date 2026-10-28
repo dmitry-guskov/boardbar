@@ -44,6 +44,33 @@ details summary{cursor:pointer;color:var(--sub);font-size:12px;margin-top:12px}
 .hb .track{flex:1;height:5px;border-radius:3px;background:var(--card)}
 .hb .v{width:62px;text-align:right;color:var(--muted);font-size:11px}
 .empty{color:var(--muted);padding:6px 0;font-size:12px}
+.isfull .lane .nm,.isfull .nmw{width:150px}.nmw{width:86px;flex:none}
+.isfull .mk .lb{max-width:96px}
+body.isfull{max-width:none;padding:18px 28px 14px}
+.full{display:grid;grid-template-columns:minmax(280px,1fr) minmax(0,1.8fr) minmax(260px,1fr);gap:28px;align-items:start;margin-top:10px}
+.full section{min-width:0}
+@media (max-width:1150px){.full{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr)}.full section:nth-child(3){grid-column:1/-1}}
+.fhead{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.fhead .brief{font-size:14px;max-width:110ch;margin-top:4px}
+.btns{display:flex;gap:6px;flex:none}
+.btn{border:.5px solid var(--line);background:var(--card);color:var(--text);font:inherit;font-size:12px;padding:3px 10px;border-radius:6px;cursor:pointer}
+.btn:hover{border-color:var(--sub)}
+.iconbtn{border:0;background:transparent;color:var(--sub);cursor:pointer;font:inherit;font-size:12px;padding:0 2px}
+.iconbtn:hover{color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;align-items:center}
+.chip{border:.5px solid var(--line);background:transparent;color:var(--sub);font:inherit;font-size:11.5px;padding:2px 9px;border-radius:12px;cursor:pointer}
+.chip.on{background:var(--card);color:var(--text);border-color:var(--sub)}
+.tr2{display:grid;grid-template-columns:10px minmax(0,1fr) 66px 44px 150px;gap:8px;align-items:center;padding:5px 0;border-bottom:.5px solid var(--line)}
+.tr2.head{font-size:11px;color:var(--muted);border-bottom:.5px solid var(--line)}
+.tr2.link{cursor:pointer}.tr2.link:hover .tt{color:var(--accent)}
+.tt{min-width:0}
+.st{font-size:11px;color:var(--sub)}.st-unknown{color:var(--warn)}.st-waiting{color:var(--accent)}.st-doing{color:var(--ok)}
+.age,.dd{text-align:right;font-size:11px;color:var(--muted)}
+.hbx{padding:4px 0 6px;border-bottom:.5px solid var(--line)}
+.hbx .meta{padding-left:16px;font-size:11.5px;color:var(--muted)}
+.cvl{display:grid;grid-template-columns:10px 120px minmax(0,1fr);gap:6px;font-size:11.5px;padding:3px 0;color:var(--sub)}
+.q{margin-top:6px;font-size:13px;color:var(--sub)}
+a.ext{color:var(--accent);text-decoration:none;cursor:pointer}
 </style>
 </head>
 <body>
@@ -88,68 +115,144 @@ function healthBanner(h,b){
   const cls=h.state==='stale'?'warn':'bad';
   return `<div class="banner ${cls}">${esc(h.message||h.state)}${b?' · showing snapshot from '+fmtTime(b.generated_at):''}</div>`}
 
-function vToday(b){
+let fArea='all',fState='open',fSort='due',localFull=false;
+const isFull=()=>window.BOARD_MODE?window.BOARD_MODE==='full':(localFull||innerWidth>=900);
+const OPEN=t=>!['done','cancelled','deferred'].includes(t.state);
+const LEGEND='<div class="sub" style="margin:5px 0 4px">◆ deadline · ● event · ■ milestone · thick bar in progress · faint bar waiting · red line today</div>';
+
+function vToday(b,o={}){
   const tasks=b.tasks||[],byId=Object.fromEntries(tasks.map(t=>[t.id,t]));
   const top=(b.top_ids||[]).map(i=>byId[i]).filter(Boolean).slice(0,3);
   const topSet=new Set(top.map(t=>t.id));
-  const open=t=>!['done','cancelled','deferred'].includes(t.state);
-  const upcoming=tasks.filter(t=>open(t)&&!topSet.has(t.id)&&(t.due||t.event_at)&&diff(t.due||t.event_at)<=28&&diff(t.due||t.event_at)>=-14)
+  const upcoming=tasks.filter(t=>OPEN(t)&&!topSet.has(t.id)&&(t.due||t.event_at)&&diff(t.due||t.event_at)<=28&&diff(t.due||t.event_at)>=-14)
     .sort((x,y)=>day(x.due||x.event_at)-day(y.due||y.event_at));
   const waiting=tasks.filter(t=>t.state==='waiting'&&!topSet.has(t.id)).sort((x,y)=>day(x.since||'2100-01-01')-day(y.since||'2100-01-01'));
   const doing=tasks.filter(t=>t.state==='doing'&&!topSet.has(t.id));
   const shown=new Set([...topSet,...upcoming.map(t=>t.id),...waiting.map(t=>t.id),...doing.map(t=>t.id)]);
-  const rest=tasks.filter(t=>open(t)&&!shown.has(t.id));
+  const rest=tasks.filter(t=>OPEN(t)&&!shown.has(t.id));
   const doneRecent=tasks.filter(t=>t.state==='done'&&t.status_as_of&&diff(t.status_as_of)>=-2);
   let h='';
-  if(b.brief)h+=`<div style="font-size:13.5px;margin:6px 0 2px">${esc(b.brief)}</div>`;
+  if(b.brief&&!o.noBrief)h+=`<div style="font-size:13.5px;margin:6px 0 2px">${esc(b.brief)}</div>`;
+  if(b.question&&b.question.text&&!o.noBrief)h+=`<div class="q" title="${esc(b.question.why||'')}">Question: ${esc(b.question.text)}</div>`;
+  if(!o.noDecisions)h+=decisionsHTML(b,true);
   h+=`<h2><span>Today</span><span>${top.length}</span></h2><div class="box">${top.length?top.map(t=>row(b,t,t.why?`<div class="sub">${esc(t.why)}</div>`:'')).join(''):'<div class="empty">Nothing picked for today.</div>'}</div>`;
   if(doing.length)h+=`<h2><span>In progress</span><span>${doing.length}</span></h2>${doing.map(t=>row(b,t)).join('')}`;
   if(upcoming.length)h+=`<h2><span>Coming up · 4 weeks</span><span>${upcoming.length}</span></h2>${upcoming.map(t=>row(b,t)).join('')}`;
   if(waiting.length)h+=`<h2><span>Waiting on</span><span>${waiting.length}</span></h2>${waiting.map(t=>row(b,t,t.waiting_on?`<span class="sub"> · ${esc(t.waiting_on)}</span>`:'')).join('')}`;
   if(doneRecent.length)h+=`<h2><span>Recently done</span><span>${doneRecent.length}</span></h2>${doneRecent.map(t=>row(b,t)).join('')}`;
-  if(rest.length)h+=`<details><summary>Everything else open (${rest.length})</summary>${rest.map(t=>row(b,t)).join('')}</details>`;
+  if(rest.length&&!o.noRest)h+=`<details><summary>Everything else open (${rest.length})</summary>${rest.map(t=>row(b,t)).join('')}</details>`;
   return h}
 
-function vTimeline(b){
+function timelineHTML(b,o){
   const tasks=(b.tasks||[]).filter(t=>!['cancelled','deferred'].includes(t.state));
-  const t0=today();const start=new Date(t0);start.setDate(start.getDate()-((start.getDay()+6)%7)-7);
-  const span=42,pct=s=>Math.max(0,Math.min(100,(day(s)-start)/864e5/span*100));
+  const wk=o.weeks,span=wk*7;
+  const t0=today();const start=new Date(t0);start.setDate(start.getDate()-((start.getDay()+6)%7)-7*o.back);
+  const pct=s=>Math.max(0,Math.min(100,(day(s)-start)/864e5/span*100));
+  const inWin=s=>day(s)>=start&&(day(s)-start)/864e5<=span;
   const nowP=(t0-start)/864e5/span*100;
   const areas=Object.keys(b.areas||{});
   tasks.forEach(t=>{if(t.area&&!areas.includes(t.area))areas.push(t.area)});
-  let weeks='';for(let i=0;i<6;i++){const d=new Date(start);d.setDate(d.getDate()+7*i);
-    weeks+=`<div style="position:absolute;left:${i/6*100}%;top:0;bottom:0;border-left:.5px solid var(--line)"><span class="sub" style="position:absolute;top:-17px;left:3px;white-space:nowrap;font-size:10.5px">${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span></div>`}
-  const lanes=areas.map(a=>{let m='';
+  let weeks='';for(let i=0;i<wk;i++){const d=new Date(start);d.setDate(d.getDate()+7*i);
+    weeks+=`<div style="position:absolute;left:${i/wk*100}%;top:0;bottom:0;border-left:.5px solid var(--line)"><span class="sub" style="position:absolute;top:-17px;left:3px;white-space:nowrap;font-size:10.5px">${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span></div>`}
+  const gap=o.weeks>6?17:20;
+  const marker=(p,shape,col,title,label,faded,low)=>`<div class="mk" style="left:${p}%" title="${title}"><div style="width:10px;height:10px;${shape};background:${col};${faded?'opacity:.4':''}"></div><span class="lb" style="${low?'top:25px;':''}${p>78?'left:auto;right:-2px;text-align:right':''}">${esc(label)}</span></div>`;
+  const place=ms=>{ms.sort((x,y)=>x[0]-y[0]);let last=-99,lastLow=true;return ms.map(m=>{const low=m[0]-last<gap?!lastLow:false;last=m[0];lastLow=low;return marker(m[0],m[1],m[2],m[3],m[4],m[5],low)}).join('')};
+  const lanes=areas.map(a=>{let m='';const ms=[];const c=color(b,a);
     tasks.filter(t=>t.area===a).forEach(t=>{
-      const c=color(b,a);
       if(t.state==='waiting'&&t.since){const l=pct(t.since);m+=`<div class="bar" title="${esc(t.title)} — waiting since ${fmt(t.since)}" style="left:${l}%;width:${Math.max(1,nowP-l)}%;top:22px;background:${c};opacity:.35"></div>`}
       if(t.state==='doing'){const l=pct(t.status_as_of||t0.toISOString());m+=`<div class="bar" title="${esc(t.title)} — in progress" style="left:${Math.min(l,nowP-2)}%;width:${Math.max(2,nowP-Math.min(l,nowP-2))}%;top:30px;background:${c}"></div>`}
-      const when=t.due||t.event_at;if(!when)return;const p=pct(when);if(day(when)<start||(day(when)-start)/864e5>span)return;
-      const shape=t.due?'transform:rotate(45deg)':'border-radius:50%';const past=diff(when)<0&&!['done','unknown'].includes(t.state);
-      m+=`<div class="mk" style="left:${p}%" title="${tip(t)}"><div style="width:10px;height:10px;${shape};background:${past?'var(--bad)':c};${t.state==='done'?'opacity:.4':''}"></div><span class="lb" style="${p>78?'left:auto;right:-2px;text-align:right':''}">${esc((t.short||t.title.split(/[ ·–(]+/).slice(0,2).join(' ')))}</span></div>`});
-    return `<div class="lane"><div class="nm"><span class="dot" style="background:${color(b,a)}"></span>${esc(areaLabel(b,a))}</div><div class="tr">${m}</div></div>`}).join('');
+      const when=t.due||t.event_at;if(!when||!inWin(when))return;
+      const past=diff(when)<0&&!['done','unknown'].includes(t.state);
+      ms.push([pct(when),t.due?'transform:rotate(45deg)':'border-radius:50%',past?'var(--bad)':c,tip(t),t.short||t.title.split(/[ ·–(]+/).slice(0,o.words||2).join(' '),t.state==='done'])});
+    m+=place(ms);
+    return `<div class="lane"><div class="nm"><span class="dot" style="background:${c}"></span>${esc(areaLabel(b,a))}</div><div class="tr">${m}</div></div>`});
+  if(o.milestones)(b.projects||[]).filter(p=>(p.milestones||[]).some(x=>x.date&&inWin(x.date))).forEach(p=>{const c=color(b,p.area);
+    const m=place(p.milestones.filter(x=>x.date&&inWin(x.date)).map(x=>[pct(x.date),'border-radius:2px',c,esc(x.title+' · '+fmt(x.date)+(x.state?' · '+x.state:'')+(x.basis?' · '+x.basis:'')),x.title,x.state==='done']));
+    lanes.push(`<div class="lane"><div class="nm" style="color:var(--sub)" title="${esc(p.name)}"><span class="dot" style="background:${c};border-radius:2px"></span><span style="overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</span></div><div class="tr">${m}</div></div>`)});
+  return `<div class="tl" style="display:flex;margin-top:24px"><div class="nmw"></div><div style="flex:1;position:relative;height:0">${weeks}<div style="position:absolute;left:${nowP}%;top:-3px;height:${46*lanes.length+3}px;border-left:1.5px solid var(--bad)"></div></div></div>${lanes.join('')}`}
+
+function heartbeatHTML(b,detailed){
   const projs=(b.projects||[]).slice().sort((x,y)=>{const o={active:0,unknown:1,parked:2,completed:3};return (o[x.state]??4)-(o[y.state]??4)||((x.last_evidenced_work?-diff(x.last_evidenced_work.date):999)-(y.last_evidenced_work?-diff(y.last_evidenced_work.date):999))});
   const known=projs.filter(p=>p.state==='active'||p.last_evidenced_work),unk=projs.filter(p=>!(p.state==='active'||p.last_evidenced_work));
   const hbRow=p=>{const lw=p.last_evidenced_work;const n=lw?-diff(lw.date):null;
     const c=n==null?'var(--muted)':n<=7?'var(--ok)':n<=21?'var(--warn)':'var(--bad)';
     const tipT=[p.state_note,lw?'Last evidenced work: '+lw.source+' ('+fmt(lw.date)+')':'No evidenced activity date',p.next?'Next ('+(p.next.basis||'')+'): '+p.next.text:'',p.note_path&&APP?'Click to open in Obsidian':''].filter(Boolean).join('\n');
-    return `<div class="hb" style="${p.note_path&&APP?'cursor:pointer':''}" title="${esc(tipT)}" ${p.note_path&&APP?`data-note="${esc(p.note_path)}"`:''}>
+    const line=`<div class="hb" style="${p.note_path&&APP?'cursor:pointer':''}" title="${esc(tipT)}" ${p.note_path&&APP?`data-note="${esc(p.note_path)}"`:''}>
       <span class="dot" style="background:${color(b,p.area)}"></span><span class="n" style="color:${p.state==='active'?'var(--text)':'var(--muted)'}">${esc(p.name)}</span>
       <div class="track">${n==null?'':`<div style="width:${Math.min(100,Math.max(3,n/42*100))}%;height:5px;border-radius:3px;background:${c}"></div>`}</div>
-      <span class="v">${n==null?'unknown':n===0?'today':n+'d ago'}</span></div>`};
-  const hb=known.map(hbRow).join('')+(unk.length?`<details><summary>No activity date or status (${unk.length})</summary>${unk.map(hbRow).join('')}</details>`:'');
-  return `<div class="tl" style="display:flex;margin-top:24px"><div style="width:86px"></div><div style="flex:1;position:relative;height:0">${weeks}<div style="position:absolute;left:${nowP}%;top:-3px;height:${46*areas.length+3}px;border-left:1.5px solid var(--bad)"></div></div></div>${lanes}
-  <div class="sub" style="margin:5px 0 4px">◆ deadline · ● event · thick bar in progress · faint bar waiting · red line today</div>
-  <h2><span>Project heartbeat · days since last evidenced work</span></h2>${hb||'<div class="empty">No projects in snapshot.</div>'}`}
+      <span class="v">${n==null?'unknown':n===0?'today':n+'d ago'}</span></div>`;
+    if(!detailed)return line;
+    const meta=[p.next?`Next: ${esc(p.next.text)}${p.next.basis&&p.next.basis!=='confirmed'?` <span class="tag">${p.next.basis==='recommendation'?'suggested':'inferred'}</span>`:''}`:'',p.state&&p.state!=='active'?esc(p.state)+(p.state_note?' · '+esc(p.state_note):''):p.state_note?esc(p.state_note):'',lw?`Last work: ${esc(lw.source)}`:''].filter(Boolean);
+    return `<div class="hbx">${line}${meta.map(m=>`<div class="meta">${m}</div>`).join('')}</div>`};
+  return (known.map(hbRow).join('')+(unk.length?`<details><summary>No activity date or status (${unk.length})</summary>${unk.map(hbRow).join('')}</details>`:''))||'<div class="empty">No projects in snapshot.</div>'}
 
+function vTimeline(b){
+  return timelineHTML(b,{back:1,weeks:6})+LEGEND+`<h2><span>Project heartbeat · days since last evidenced work</span></h2>`+heartbeatHTML(b,false)}
+
+function decisionsHTML(b,compact){const d=b.decisions||[];if(!d.length)return '';
+  return `<h2><span>Needs your decision</span><span>${d.length}</span></h2><div class="box">`+d.map(x=>`<div class="row" title="${esc([x.why,...(x.sources||[]).map(s=>'Source: '+s.ref+(s.date?' ('+fmt(s.date)+')':''))].filter(Boolean).join('\n'))}"><span class="dot" style="background:var(--warn)"></span><div class="t">${esc(x.question)}${x.basis==='recommendation'?'<span class="tag">suggested</span>':''}${!compact&&(x.options||[]).length?`<div class="sub">${x.options.map(esc).join(' · ')}</div>`:''}${!compact&&x.why?`<div class="sub">${esc(x.why)}</div>`:''}</div>${x.due?`<span class="pill ${diff(x.due)<=3?'warn':''}">${fmt(x.due)}</span>`:''}</div>`).join('')+'</div>'}
+
+function readingHTML(b){const r=b.reading||[];if(!r.length)return '';
+  return `<h2><span>Reading</span><span>${r.length}</span></h2>`+r.map(x=>`<div class="row"><div class="t">${x.url?`<a class="ext" data-url="${esc(x.url)}">${esc(x.title)}</a>`:esc(x.title)}${x.authors?`<div class="sub">${esc(x.authors)}</div>`:''}${x.why?`<div class="sub">${esc(x.why)}</div>`:''}</div></div>`).join('')}
+
+function changesHTML(b,prev){
+  if(!prev||!prev.tasks)return `<h2><span>Changed since last snapshot</span></h2><div class="empty">Shown from the next refresh on.</div>`;
+  const pm=Object.fromEntries(prev.tasks.map(t=>[t.id,t])),cm=new Set((b.tasks||[]).map(t=>t.id));
+  const items=[];
+  (b.tasks||[]).forEach(t=>{const o=pm[t.id];
+    if(!o){items.push([t,'new']);return}
+    if(o.state!==t.state)items.push([t,`${o.state} → ${t.state}`]);
+    else if((o.due||'')!==(t.due||''))items.push([t,o.due?`due ${fmt(o.due)} → ${t.due?fmt(t.due):'none'}`:`now due ${fmt(t.due)}`])});
+  const gone=prev.tasks.filter(t=>!cm.has(t.id));
+  const head=`<h2><span>Changed since ${fmtTime(prev.generated_at)}</span><span>${items.length+gone.length}</span></h2>`;
+  if(!items.length&&!gone.length)return head+'<div class="empty">No changes.</div>';
+  return head+items.map(([t,c])=>row(b,t,`<div class="sub">${esc(c)}</div>`)).join('')+gone.map(t=>`<div class="row"><span class="dot" style="background:var(--muted)"></span><div class="t" style="color:var(--muted)">${esc(t.title)}<div class="sub">no longer listed — not marked done</div></div></div>`).join('')}
+
+function tableHTML(b){
+  const tasks=b.tasks||[];
+  const inArea=t=>fArea==='all'||t.area===fArea;
+  const flt=t=>inArea(t)&&(fState==='all'||(fState==='open'?OPEN(t):t.state===fState));
+  const key=t=>fSort==='due'?(t.due||t.event_at||'9999'):fSort==='age'?(t.status_as_of||t.open_since||'0000'):t.title.toLowerCase();
+  const rows=tasks.filter(flt).sort((x,y)=>key(x)<key(y)?-1:key(x)>key(y)?1:0);
+  const n=s=>tasks.filter(t=>inArea(t)&&(s==='open'?OPEN(t):s==='all'||t.state===s)).length;
+  const chips=(name,cur,opts)=>opts.map(([v,l])=>`<button class="chip ${cur===v?'on':''}" data-f="${name}" data-v="${v}">${esc(l)}</button>`).join('');
+  const states=[['open','Open'],['unknown','Status ?'],['todo','To do'],['doing','Doing'],['waiting','Waiting'],['deferred','Deferred'],['done','Done'],['all','All']].filter(([v])=>v==='open'||v==='all'||n(v)).map(([v,l])=>[v,`${l} ${n(v)}`]);
+  return `<h2><span>All items</span><span>${rows.length}</span></h2>
+  <div class="chips">${chips('area',fArea,[['all','All areas'],...Object.keys(b.areas||{}).map(a=>[a,areaLabel(b,a)])])}</div>
+  <div class="chips">${chips('state',fState,states)}<span style="flex:1"></span>${chips('sort',fSort,[['due','By date'],['age','Oldest status'],['title','A–Z']])}</div>
+  <div class="tr2 head"><span></span><span>Item</span><span>State</span><span style="text-align:right" title="Days since the state was last confirmed">Age</span><span style="text-align:right">Date</span></div>
+  ${rows.map(t=>`<div class="tr2 ${t.note_path&&APP?'link':''}" title="${tip(t)}" ${t.note_path&&APP?`data-note="${esc(t.note_path)}"`:''}><span class="dot" style="background:${color(b,t.area)}"></span><span class="tt">${esc(t.title)}${tags(t).replace('<span class="tag">status ?</span>','')}</span><span class="st st-${esc(t.state)}">${esc(t.state==='unknown'?'status ?':t.state)}</span><span class="age">${t.status_as_of?(-diff(t.status_as_of))+'d':''}</span><span class="dd">${dueChip(t)}</span></div>`).join('')||'<div class="empty">Nothing matches.</div>'}`}
+
+function coverageHTML(b){const c=b.coverage||[];if(!c.length)return '';
+  const col={checked:'var(--ok)',partial:'var(--warn)',unavailable:'var(--bad)',not_configured:'var(--muted)'};
+  return `<h2><span>Sources this run</span></h2>`+c.map(x=>`<div class="cvl" title="${esc(x.note||'')}"><span class="dot" style="width:7px;height:7px;margin-top:5px;background:${col[x.status]||'var(--muted)'}"></span><span>${esc(x.source)}</span><span style="color:var(--muted)">${esc(x.status.replace('_',' '))}${x.note?' · '+esc(x.note):''}</span></div>`).join('')}
+
+function vFull(b){
+  const prev=payload.previous;const now=new Date();
+  const btns=`<div class="btns">${APP?'<button class="btn" data-act="fullscreen">Full screen</button>':'<button class="btn" data-act="collapse">Compact view</button>'}${APP?'<button class="btn" data-act="reload">Reload</button>':''}</div>`;
+  let h=`<div class="fhead"><div style="min-width:0;flex:1"><div style="font-size:20px;font-weight:600">${now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})} <span class="sub" style="font-size:12px;font-weight:400">${(b.tasks||[]).filter(OPEN).length} open · updated ${fmtTime(b.generated_at)}</span></div>${b.brief?`<div class="brief">${esc(b.brief)}</div>`:''}${b.question&&b.question.text?`<div class="q" title="${esc(b.question.why||'')}">Question: ${esc(b.question.text)}</div>`:''}</div>${btns}</div>`;
+  h+=`<div class="full"><section>${decisionsHTML(b)}${vToday(b,{noBrief:true,noRest:true,noDecisions:true})}${changesHTML(b,prev)}</section>
+    <section><h2><span>Timeline · 10 weeks</span></h2>${timelineHTML(b,{back:2,weeks:10,milestones:true,words:4})}${LEGEND}${tableHTML(b)}</section>
+    <section><h2><span>Projects · days since last evidenced work</span></h2>${heartbeatHTML(b,true)}${readingHTML(b)}${coverageHTML(b)}</section></div>`;
+  return h}
+
+function shiftFixture(p){const b=p&&p.board;if(!b||!b.fixture||b._shifted)return p;
+  const off=Math.round((today()-day(b.generated_at))/864e5);if(!off)return p;
+  const sh=v=>{if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}/.test(v))return v;const d=new Date(v.length===10?v+'T12:00:00':v);d.setDate(d.getDate()+off);
+    return v.length===10?d.toLocaleDateString('en-CA'):v.replace(/^\d{4}-\d{2}-\d{2}/,d.toLocaleDateString('en-CA'))};
+  const walk=o=>{if(Array.isArray(o))return o.map(walk);if(o&&typeof o==='object'){for(const k in o)o[k]=/^(due|event_at|since|open_since|status_as_of|date|generated_at|next_refresh_at|checked_at)$/.test(k)?sh(o[k]):walk(o[k]);}return o};
+  walk(b);if(p.previous)walk(p.previous);b._shifted=true;return p}
 function render(p){
+  if(p)p=shiftFixture(p);
   payload=p||payload;const b=payload&&payload.board,h=payload&&payload.health;
-  const app=document.getElementById('app');
-  if(!b){app.innerHTML=healthBanner(h||{state:'missing',message:'No board snapshot yet.'})+'<div class="empty">The morning curator writes <code>07 Meta/board.json</code>. Nothing to show until then.</div>'+foot(null,h);bind();return}
-  const now=new Date();
+  const app=document.getElementById('app');const full=isFull();
+  document.body.classList.toggle('isfull',full);
+  if(!b){app.innerHTML=healthBanner(h||{state:'missing',message:'No board snapshot yet.'})+'<div class="empty">The morning curator writes <code>board.json</code>. Nothing to show until then.</div>'+foot(null,h);bind();return}
   let html=healthBanner(h,b);
   if(b.fixture)html+='<div class="banner warn">Example data — not a real curator snapshot</div>';
-  html+=`<div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:600">${now.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</span><span class="sub">${(b.tasks||[]).filter(t=>!['done','cancelled','deferred'].includes(t.state)).length} open</span></div>`;
+  if(full){html+=vFull(b)+foot(b,h);app.innerHTML=html;bind();return}
+  const now=new Date();const nd=(b.decisions||[]).length;
+  html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:600">${now.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</span><span style="flex:1"></span><span class="sub">${(b.tasks||[]).filter(OPEN).length} open${nd?` · ${nd} decision${nd>1?'s':''}`:''}</span><button class="iconbtn" data-act="expand" title="Open the full board (or double-click anywhere)">Expand ↗</button></div>`;
   html+=`<div class="tabs"><button data-tab="today" class="${tab==='today'?'on':''}">Today</button><button data-tab="timeline" class="${tab==='timeline'?'on':''}">Timeline</button></div>`;
   html+=tab==='timeline'?vTimeline(b):vToday(b);
   html+=foot(b,h);app.innerHTML=html;bind()}
@@ -157,18 +260,26 @@ function foot(b,h){
   const cov=b&&b.coverage?b.coverage.map(c=>{const col={checked:'var(--ok)',partial:'var(--warn)',unavailable:'var(--bad)',not_configured:'var(--muted)'}[c.status]||'var(--muted)';
     return `<span class="cov" title="${esc(c.source+': '+c.status.replace('_',' ')+(c.note?' — '+c.note:'')+(c.checked_at?' · '+fmtTime(c.checked_at):''))}"><span class="dot" style="width:6px;height:6px;background:${col}"></span>${esc(c.source.split(' (')[0])}</span>`}).join(''):'';
   return `<div class="foot">${b?`<span>Updated ${fmtTime(b.generated_at)}${b.next_refresh_at?' · next '+fmtTime(b.next_refresh_at):''}</span>`:''}<span style="flex-basis:100%;height:0"></span>${cov}${APP?'<span style="flex:1"></span><a data-act="reload">Reload</a><a data-act="openfile">JSON</a><a data-act="quit">Quit</a>':''}</div>`}
+function expand(){if(APP&&window.BOARD_MODE!=='full')post({act:'expand'});else{localFull=true;render()}}
+function act(a){if(a==='expand')return expand();if(a==='collapse'){localFull=false;return render()}post({act:a})}
 function bind(){
   document.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>{tab=e.dataset.tab;try{localStorage.setItem('tab',tab)}catch(x){}render()});
   document.querySelectorAll('[data-note]').forEach(e=>e.onclick=()=>post({open:e.dataset.note}));
-  document.querySelectorAll('[data-act]').forEach(e=>e.onclick=()=>post({act:e.dataset.act}))}
+  document.querySelectorAll('[data-url]').forEach(e=>e.onclick=()=>APP?post({url:e.dataset.url}):window.open(e.dataset.url,'_blank','noopener'));
+  document.querySelectorAll('[data-act]').forEach(e=>e.onclick=()=>act(e.dataset.act));
+  document.querySelectorAll('[data-f]').forEach(e=>e.onclick=()=>{const v=e.dataset.v;if(e.dataset.f==='area')fArea=v;else if(e.dataset.f==='state')fState=v;else fSort=v;render()})}
+document.addEventListener('dblclick',e=>{if(!isFull()&&!e.target.closest('.row,.hb,button,a,summary,.mk'))expand()});
+let wasFull=null;addEventListener('resize',()=>{if(window.BOARD_MODE)return;const f=isFull();if(f!==wasFull){wasFull=f;if(payload)render()}});
 window.render=render;
 function webHealth(b){const now=Date.now();
   if(b.fixture)return {state:'ok'};
   if(b.next_refresh_at){return now>new Date(b.next_refresh_at).getTime()+3*36e5?{state:'stale',message:'Expected refresh has not arrived'}:{state:'ok'}}
   return now-new Date(b.generated_at).getTime()>36*36e5?{state:'stale',message:'Snapshot is older than 36h'}:{state:'ok'}}
 if(!APP){
-  const src=new URLSearchParams(location.search).get('board')||'board.json';
-  fetch(src).then(r=>r.json()).then(board=>render({board,health:webHealth(board)})).catch(e=>render({board:null,health:{state:'invalid',message:'Could not load '+src}}))}
+  const qs=new URLSearchParams(location.search);const src=qs.get('board')||'board.json',prevSrc=qs.get('previous');
+  Promise.all([fetch(src).then(r=>r.json()),prevSrc?fetch(prevSrc).then(r=>r.json()).catch(()=>null):null])
+    .then(([board,previous])=>render({board,previous,health:webHealth(board)}))
+    .catch(e=>render({board:null,health:{state:'invalid',message:'Could not load '+src}}))}
 else post({act:'ready'});
 </script>
 </body>
