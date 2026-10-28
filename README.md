@@ -38,7 +38,11 @@ The **expanded view** adds:
 - a list of what changed since the previous snapshot. The app works this out by comparing task IDs; a task that disappears is shown as "no longer listed", never as done.
 - a 10-week timeline with a lane for each project that has milestones
 - a table of every item, which you can filter by area or state and sort by date or by how old its status is
-- project next steps, reading, and which sources were checked
+- project next steps (child projects nested under their parent), reading, and which sources were checked
+- hover cards on the timeline with each item's full title, date, status and sources
+- a **Set status…** menu on every item. It adds a line to `board-feedback.jsonl` for the curator to apply at its next run (see [FORMAT.md](FORMAT.md#feedback-log-and-receipts-11)). Each update shows as pending until the curator publishes a receipt.
+
+Suggestions (`basis: "recommendation"`) get their own group and aren't counted as open work.
 
 It warns you when the snapshot is late (3h past `next_refresh_at`), missing, or invalid. If the new file is invalid, it keeps showing the last good snapshot.
 
@@ -89,8 +93,8 @@ If `note_path` is relative to an Obsidian vault, clicking a task opens that note
 |---|---|
 | `BoardBar.swift` | Menu-bar shell: SwiftUI `MenuBarExtra` with a `WKWebView`. Watches the file every 30s, caches the last good snapshot and the previous one (for the change list), and opens the expanded window. |
 | `board.html` | Both views, plain HTML and JS, light and dark. Also works standalone in a browser. |
-| `validate_board.py` | Format v1 validator and atomic publisher (standard library only). |
-| `example/board.json` | Made-up sample data. |
+| `validate_board.py` | Format v1 / 1.1 validator and atomic publisher (standard library only). |
+| `example/` | Made-up sample board, previous snapshot and feedback log. |
 | `build.sh`, `install.sh`, `uninstall.sh` | Build, install at login, remove. |
 
 ## License

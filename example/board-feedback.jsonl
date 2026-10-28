@@ -1,0 +1,2 @@
+{"action": "done", "actor": "sam", "event_id": "5d1f2c3a-0000-4000-8000-000000000001", "note": "", "previous_state": "todo", "recorded_at": "2026-10-14T09:12:00-04:00", "snapshot_generated_at": "2026-10-14T07:00:00-04:00", "task_id": "dentist", "via": "BoardBar"}
+{"action": "done", "actor": "sam", "event_id": "5d1f2c3a-0000-4000-8000-000000000002", "note": "", "previous_state": "unknown", "recorded_at": "2026-10-13T18:40:00-04:00", "snapshot_generated_at": "2026-10-13T07:00:00-04:00", "task_id": "ta-hours", "via": "BoardBar"}

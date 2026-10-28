@@ -17,6 +17,14 @@ final class Store: ObservableObject {
     @Published var previous: [String: Any]?
     @Published var health: [String: Any] = ["state": "missing", "message": "No board snapshot yet."]
     @Published var topCount = 0
+    @Published private var feedbackRaw = "[]"
+    static let feedbackActions: Set<String> = ["done", "todo", "doing", "waiting", "cancelled"]
+    var feedbackEnabled: Bool { UserDefaults.standard.object(forKey: "feedbackEnabled") as? Bool ?? true }
+    var feedbackPath: String {
+        UserDefaults.standard.string(forKey: "feedbackPath")
+            ?? URL(fileURLWithPath: path).deletingLastPathComponent().appendingPathComponent("board-feedback.jsonl").path
+    }
+    var actor: String { UserDefaults.standard.string(forKey: "actor") ?? NSUserName() }
     let path = boardPath()
     private var lastMTime: Date?
     private var timer: Timer?
@@ -88,6 +96,7 @@ final class Store: ObservableObject {
             }
         }
         if healthState == "ok", let b = board { health = staleness(b) }
+        loadFeedback()
         topCount = (board?["top_ids"] as? [String])?.count ?? 0
     }
 
@@ -104,13 +113,49 @@ final class Store: ObservableObject {
         return ["state": "ok"]
     }
 
+    /// Reads the append-only feedback log; malformed lines are skipped, never rewritten.
+    func loadFeedback() {
+        guard feedbackEnabled, let text = try? String(contentsOfFile: feedbackPath, encoding: .utf8) else { return }
+        let events = text.split(separator: "\n").compactMap { line -> [String: Any]? in
+            guard let d = line.data(using: .utf8) else { return nil }
+            return try? JSONSerialization.jsonObject(with: d) as? [String: Any]
+        }
+        if let d = try? JSONSerialization.data(withJSONObject: events), let s = String(data: d, encoding: .utf8), s != feedbackRaw { feedbackRaw = s }
+    }
+
+    /// Appends one event as a single JSON line. Returns an error message, or nil on success.
+    func appendFeedback(_ input: [String: Any]) -> String? {
+        guard feedbackEnabled else { return "Feedback is turned off" }
+        guard let task = input["task_id"] as? String, !task.isEmpty,
+              let action = input["action"] as? String, Store.feedbackActions.contains(action) else { return "Invalid status update" }
+        let stamp = ISO8601DateFormatter(); stamp.timeZone = .current; stamp.formatOptions = [.withInternetDateTime]
+        let event: [String: Any] = [
+            "event_id": UUID().uuidString.lowercased(),
+            "recorded_at": stamp.string(from: Date()),
+            "actor": actor, "via": "BoardBar",
+            "task_id": task, "action": action,
+            "snapshot_generated_at": input["snapshot_generated_at"] as? String ?? "",
+            "previous_state": input["previous_state"] as? String ?? "",
+            "note": input["note"] as? String ?? "",
+        ]
+        guard var line = try? JSONSerialization.data(withJSONObject: event, options: [.sortedKeys]) else { return "Could not encode the update" }
+        line.append(0x0A)
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: feedbackPath), !fm.createFile(atPath: feedbackPath, contents: nil) { return "Could not create \(feedbackPath)" }
+        guard let handle = FileHandle(forWritingAtPath: feedbackPath) else { return "Could not open \(feedbackPath)" }
+        defer { try? handle.close() }
+        do { try handle.seekToEnd(); try handle.write(contentsOf: line) } catch { return error.localizedDescription }
+        loadFeedback()
+        return nil
+    }
+
     // The board is passed as its original text: re-serializing would reorder keys, and area order matters.
     var payloadJSON: String {
         func json(_ o: Any?) -> String {
             guard let o, let d = try? JSONSerialization.data(withJSONObject: o) else { return "null" }
             return String(data: d, encoding: .utf8) ?? "null"
         }
-        return "{\"health\":\(json(health)),\"board\":\(boardRaw ?? "null"),\"previous\":\(json(previous))}"
+        return "{\"health\":\(json(health)),\"board\":\(boardRaw ?? "null"),\"previous\":\(json(previous)),\"feedback\":\(feedbackRaw),\"feedbackEnabled\":\(feedbackEnabled)}"
     }
 
     var icon: String {
@@ -193,7 +238,14 @@ struct WebBoard: NSViewRepresentable {
                 comps.queryItems = [URLQueryItem(name: "vault", value: vaultName), URLQueryItem(name: "file", value: note)]
                 if let url = comps.url { NSWorkspace.shared.open(url) }
             }
-            if let link = body["url"] as? String, let url = URL(string: link), ["http", "https"].contains(url.scheme ?? "") {
+            if let fb = body["feedback"] as? [String: Any] {
+                let error = store.appendFeedback(fb)
+                let result = error.map { ["ok": false, "error": $0] as [String: Any] } ?? ["ok": true]
+                if let d = try? JSONSerialization.data(withJSONObject: result), let s = String(data: d, encoding: .utf8) {
+                    web?.evaluateJavaScript("feedbackResult(\(s))")
+                }
+            }
+            if let link = body["url"] as? String, let url = URL(string: link), ["http", "https", "zotero"].contains(url.scheme ?? "") {
                 NSWorkspace.shared.open(url)
             }
             switch body["act"] as? String {

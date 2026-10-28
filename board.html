@@ -33,11 +33,14 @@ details summary{cursor:pointer;color:var(--sub);font-size:12px;margin-top:12px}
 .foot a{color:var(--sub);cursor:pointer;text-decoration:none}.foot a:hover{color:var(--accent)}
 .cov{display:inline-flex;align-items:center;gap:4px}
 .tl{position:relative}
-.lane{display:flex;height:46px;border-bottom:.5px solid var(--line)}
+.lane{display:flex;min-height:46px;border-bottom:.5px solid var(--line)}
 .lane .nm{width:86px;white-space:nowrap;font-size:12px;padding-top:4px;display:flex;gap:5px;align-items:baseline}
 .lane .tr{flex:1;position:relative}
-.mk{position:absolute;top:4px;transform:translateX(-5px);cursor:default}
-.mk .lb{position:absolute;top:13px;left:-2px;white-space:nowrap;font-size:10.5px;color:var(--sub);max-width:64px;overflow:hidden;text-overflow:ellipsis}
+.mk{position:absolute;top:4px;transform:translateX(-5px);display:flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}
+.mk.flip{flex-direction:row-reverse;transform:translateX(calc(-100% + 5px))}
+.mk>.m{width:10px;height:10px;flex:none}
+.mk:hover .lb{color:var(--text)}
+.mk .lb{font-size:10.5px;color:var(--sub);max-width:96px;overflow:hidden;text-overflow:ellipsis}
 .bar{position:absolute;height:6px;border-radius:3px}
 .hb{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px}
 .hb .n{width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -45,7 +48,7 @@ details summary{cursor:pointer;color:var(--sub);font-size:12px;margin-top:12px}
 .hb .v{width:62px;text-align:right;color:var(--muted);font-size:11px}
 .empty{color:var(--muted);padding:6px 0;font-size:12px}
 .isfull .lane .nm,.isfull .nmw{width:150px}.nmw{width:86px;flex:none}
-.isfull .mk .lb{max-width:96px}
+.isfull .mk .lb{max-width:170px}
 body.isfull{max-width:none;padding:18px 28px 14px}
 .full{display:grid;grid-template-columns:minmax(280px,1fr) minmax(0,1.8fr) minmax(260px,1fr);gap:28px;align-items:start;margin-top:10px}
 .full section{min-width:0}
@@ -71,13 +74,26 @@ body.isfull{max-width:none;padding:18px 28px 14px}
 .cvl{display:grid;grid-template-columns:10px 120px minmax(0,1fr);gap:6px;font-size:11.5px;padding:3px 0;color:var(--sub)}
 .q{margin-top:6px;font-size:13px;color:var(--sub)}
 a.ext{color:var(--accent);text-decoration:none;cursor:pointer}
+.now{position:absolute;top:0;bottom:0;border-left:1.5px solid var(--bad);pointer-events:none}
+.grid{position:absolute;top:0;bottom:0;border-left:.5px solid var(--line);pointer-events:none}
+#hov{position:fixed;z-index:10;max-width:320px;background:var(--bg);border:.5px solid var(--sub);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.45;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+#hov .ht{font-weight:600;font-size:12.5px;margin-bottom:2px}
+#hov .hl{color:var(--sub)}
+.tag.sg{border-style:dashed}
+.tag.pend{color:var(--accent);border-color:var(--accent)}
+.tag.conf{color:var(--warn);border-color:var(--warn)}
+.tr2{grid-template-columns:10px minmax(0,1fr) 66px 44px 150px 104px}
+select.fb{font:inherit;font-size:11px;color:var(--sub);background:var(--card);border:.5px solid var(--line);border-radius:5px;padding:1px 2px;width:100%}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:6px 12px;border-radius:7px;font-size:12px;z-index:11}
+#toast.err{background:var(--bad-bg);color:var(--bad)}
+.child .n{padding-left:12px}
 </style>
 </head>
 <body>
 <div id="app"><div class="empty">Loading…</div></div>
 <script>
 const PALETTE=['var(--a1)','var(--a2)','var(--a3)','var(--a4)','var(--a5)','var(--a6)'];
-let payload=null,tab='today';
+let payload=null,tab='today',fArea='all',fState='open',fSort='due',localFull=false,HOV=[];
 try{tab=localStorage.getItem('tab')||'today'}catch(e){}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const day=s=>{const d=new Date(s.length===10?s+'T12:00:00':s);return new Date(d.getFullYear(),d.getMonth(),d.getDate())};
@@ -85,10 +101,27 @@ const today=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth()
 const diff=s=>Math.round((day(s)-today())/864e5);
 const fmt=s=>day(s).toLocaleDateString('en-US',{month:'short',day:'numeric'});
 const fmtTime=s=>new Date(s).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+const rel=s=>{const n=diff(s);return n===0?'today':n===1?'tomorrow':n===-1?'yesterday':n>0?'in '+n+'d':(-n)+'d ago'};
 const APP=!!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.app);
-const post=m=>{try{window.webkit.messageHandlers.app.postMessage(m)}catch(e){if(m.open)console.log('open',m.open)}};
+const post=m=>{try{window.webkit.messageHandlers.app.postMessage(m)}catch(e){}};
+const isFull=()=>window.BOARD_MODE?window.BOARD_MODE==='full':(localFull||innerWidth>=900);
+const OPEN=t=>!['done','cancelled','deferred'].includes(t.state);
+const SUGG=t=>t.basis==='recommendation';
+const ACTIONS=[['done','Done'],['todo','To do'],['doing','Doing'],['waiting','Waiting'],['cancelled','Cancel task']];
+const LEGEND='<div class="sub" style="margin:5px 0 4px">◆ deadline · ● event · ■ milestone · thick bar in progress · faint bar waiting · red line today · hover for details</div>';
 function color(b,a){const k=Object.keys((b&&b.areas)||{});const i=k.indexOf(a);return i<0?'var(--a5)':PALETTE[i%PALETTE.length]}
 function areaLabel(b,a){return (b.areas&&b.areas[a]&&b.areas[a].label)||a||'Other'}
+
+function feedbackFor(id){
+  const evs=((payload&&payload.feedback)||[]).filter(e=>e.task_id===id).sort((x,y)=>String(x.recorded_at).localeCompare(String(y.recorded_at)));
+  if(!evs.length)return null;const ev=evs[evs.length-1];
+  const rc=((payload.board&&payload.board.feedback_receipts)||{})[ev.event_id];return {ev,rc}}
+function fbTag(t){const f=feedbackFor(t.id);if(!f)return '';
+  const lbl=(ACTIONS.find(a=>a[0]===f.ev.action)||[0,f.ev.action])[1].toLowerCase();
+  if(!f.rc)return `<span class="tag pend" title="Saved ${esc(fmtTime(f.ev.recorded_at))}; applies at the next curator run">you: ${esc(lbl)} · pending</span>`;
+  if(f.rc.status==='conflict')return `<span class="tag conf" title="${esc(f.rc.reason||'')}">you: ${esc(lbl)} · conflict</span>`;
+  if(f.rc.status==='rejected')return `<span class="tag conf" title="${esc(f.rc.reason||'')}">you: ${esc(lbl)} · not applied</span>`;
+  return ''}
 function dueChip(t){
   const st=t.state;
   if(t.due){const n=diff(t.due);
@@ -98,12 +131,12 @@ function dueChip(t){
   if(t.state==='waiting'&&t.since)return `<span class="sub">${-diff(t.since)}d</span>`;
   if(t.open_since)return `<span class="sub">open ${-diff(t.open_since)}d</span>`;
   return ''}
-function tags(t){let s='';
-  if(t.basis==='recommendation')s+='<span class="tag">suggested</span>';
+function tags(t,noStatus){let s='';
+  if(SUGG(t))s+='<span class="tag sg">suggested</span>';
   if(t.basis==='inference')s+='<span class="tag">inferred</span>';
-  if(t.state==='unknown')s+='<span class="tag">status ?</span>';
+  if(t.state==='unknown'&&!noStatus)s+='<span class="tag">status ?</span>';
   if(t.priority==='high')s+='<span class="tag">high</span>';
-  return s}
+  return s+fbTag(t)}
 function tip(t){const p=[];if(t.why)p.push(t.why);if(t.status_as_of)p.push('Status as of '+fmt(t.status_as_of));
   (t.sources||[]).forEach(s=>p.push('Source: '+s.ref+(s.date?' ('+fmt(s.date)+')':'')+(s.confidence?' · '+s.confidence:'')));
   if(t.note_path&&APP)p.push('Click to open in Obsidian');return esc(p.join('\n'))}
@@ -112,37 +145,44 @@ function row(b,t,extra){return `<div class="row ${t.note_path&&APP?'link':''}" t
   <div class="t">${esc(t.title)}${tags(t)}${extra||''}</div>${dueChip(t)}</div>`}
 function healthBanner(h,b){
   if(!h||h.state==='ok')return '';
-  const cls=h.state==='stale'?'warn':'bad';
-  return `<div class="banner ${cls}">${esc(h.message||h.state)}${b?' · showing snapshot from '+fmtTime(b.generated_at):''}</div>`}
-
-let fArea='all',fState='open',fSort='due',localFull=false;
-const isFull=()=>window.BOARD_MODE?window.BOARD_MODE==='full':(localFull||innerWidth>=900);
-const OPEN=t=>!['done','cancelled','deferred'].includes(t.state);
-const LEGEND='<div class="sub" style="margin:5px 0 4px">◆ deadline · ● event · ■ milestone · thick bar in progress · faint bar waiting · red line today</div>';
+  return `<div class="banner ${h.state==='stale'?'warn':'bad'}">${esc(h.message||h.state)}${b?' · showing snapshot from '+fmtTime(b.generated_at):''}</div>`}
+function questionHTML(b){const q=b.question;if(!q||!q.text)return '';
+  if(q.decision_id&&(b.decisions||[]).some(d=>d.id===q.decision_id))return '';
+  return `<div class="q" title="${esc(q.why||'')}">Question: ${esc(q.text)}</div>`}
 
 function vToday(b,o={}){
   const tasks=b.tasks||[],byId=Object.fromEntries(tasks.map(t=>[t.id,t]));
   const top=(b.top_ids||[]).map(i=>byId[i]).filter(Boolean).slice(0,3);
   const topSet=new Set(top.map(t=>t.id));
-  const upcoming=tasks.filter(t=>OPEN(t)&&!topSet.has(t.id)&&(t.due||t.event_at)&&diff(t.due||t.event_at)<=28&&diff(t.due||t.event_at)>=-14)
-    .sort((x,y)=>day(x.due||x.event_at)-day(y.due||y.event_at));
-  const waiting=tasks.filter(t=>t.state==='waiting'&&!topSet.has(t.id)).sort((x,y)=>day(x.since||'2100-01-01')-day(y.since||'2100-01-01'));
-  const doing=tasks.filter(t=>t.state==='doing'&&!topSet.has(t.id));
-  const shown=new Set([...topSet,...upcoming.map(t=>t.id),...waiting.map(t=>t.id),...doing.map(t=>t.id)]);
-  const rest=tasks.filter(t=>OPEN(t)&&!shown.has(t.id));
+  const pool=tasks.filter(t=>!topSet.has(t.id)&&!SUGG(t));
+  const upcoming=pool.filter(t=>OPEN(t)&&(t.due||t.event_at)&&diff(t.due||t.event_at)<=28&&diff(t.due||t.event_at)>=-14).sort((x,y)=>day(x.due||x.event_at)-day(y.due||y.event_at));
+  const waiting=pool.filter(t=>t.state==='waiting').sort((x,y)=>day(x.since||'2100-01-01')-day(y.since||'2100-01-01'));
+  const doing=pool.filter(t=>t.state==='doing');
+  const suggestions=tasks.filter(t=>OPEN(t)&&SUGG(t)&&!topSet.has(t.id));
+  const shown=new Set([...upcoming,...waiting,...doing].map(t=>t.id));
+  const rest=pool.filter(t=>OPEN(t)&&!shown.has(t.id));
   const doneRecent=tasks.filter(t=>t.state==='done'&&t.status_as_of&&diff(t.status_as_of)>=-2);
   let h='';
   if(b.brief&&!o.noBrief)h+=`<div style="font-size:13.5px;margin:6px 0 2px">${esc(b.brief)}</div>`;
-  if(b.question&&b.question.text&&!o.noBrief)h+=`<div class="q" title="${esc(b.question.why||'')}">Question: ${esc(b.question.text)}</div>`;
+  if(!o.noBrief)h+=questionHTML(b);
   if(!o.noDecisions)h+=decisionsHTML(b,true);
   h+=`<h2><span>Today</span><span>${top.length}</span></h2><div class="box">${top.length?top.map(t=>row(b,t,t.why?`<div class="sub">${esc(t.why)}</div>`:'')).join(''):'<div class="empty">Nothing picked for today.</div>'}</div>`;
   if(doing.length)h+=`<h2><span>In progress</span><span>${doing.length}</span></h2>${doing.map(t=>row(b,t)).join('')}`;
   if(upcoming.length)h+=`<h2><span>Coming up · 4 weeks</span><span>${upcoming.length}</span></h2>${upcoming.map(t=>row(b,t)).join('')}`;
   if(waiting.length)h+=`<h2><span>Waiting on</span><span>${waiting.length}</span></h2>${waiting.map(t=>row(b,t,t.waiting_on?`<span class="sub"> · ${esc(t.waiting_on)}</span>`:'')).join('')}`;
+  if(suggestions.length)h+=`<h2><span title="Suggested next steps, not commitments">Suggestions</span><span>${suggestions.length}</span></h2>${suggestions.map(t=>row(b,t,t.why?`<div class="sub">${esc(t.why)}</div>`:'')).join('')}`;
   if(doneRecent.length)h+=`<h2><span>Recently done</span><span>${doneRecent.length}</span></h2>${doneRecent.map(t=>row(b,t)).join('')}`;
   if(rest.length&&!o.noRest)h+=`<details><summary>Everything else open (${rest.length})</summary>${rest.map(t=>row(b,t)).join('')}</details>`;
   return h}
 
+function hovTask(b,t){const when=t.due||t.event_at;
+  return {title:t.title,color:color(b,t.area),lines:[
+    when?`${t.due?'Due':'Event'} ${fmt(when)} (${rel(when)})`:'',
+    `${t.state==='unknown'?'Status unknown':t.state}${t.status_as_of?' · as of '+fmt(t.status_as_of):''}${SUGG(t)?' · suggested, not committed':t.basis==='inference'?' · inferred':''}`,
+    t.waiting_on?`Waiting on ${t.waiting_on}${t.since?' since '+fmt(t.since):''}`:'',
+    t.why||'',
+    ...(t.sources||[]).map(s=>'Source: '+s.ref+(s.date?' · '+fmt(s.date):'')),
+    t.note_path&&APP?'Click to open in Obsidian':''].filter(Boolean),note:t.note_path}}
 function timelineHTML(b,o){
   const tasks=(b.tasks||[]).filter(t=>!['cancelled','deferred'].includes(t.state));
   const wk=o.weeks,span=wk*7;
@@ -152,128 +192,169 @@ function timelineHTML(b,o){
   const nowP=(t0-start)/864e5/span*100;
   const areas=Object.keys(b.areas||{});
   tasks.forEach(t=>{if(t.area&&!areas.includes(t.area))areas.push(t.area)});
-  let weeks='';for(let i=0;i<wk;i++){const d=new Date(start);d.setDate(d.getDate()+7*i);
-    weeks+=`<div style="position:absolute;left:${i/wk*100}%;top:0;bottom:0;border-left:.5px solid var(--line)"><span class="sub" style="position:absolute;top:-17px;left:3px;white-space:nowrap;font-size:10.5px">${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span></div>`}
-  const gap=o.weeks>6?17:20;
-  const marker=(p,shape,col,title,label,faded,low)=>`<div class="mk" style="left:${p}%" title="${title}"><div style="width:10px;height:10px;${shape};background:${col};${faded?'opacity:.4':''}"></div><span class="lb" style="${low?'top:25px;':''}${p>78?'left:auto;right:-2px;text-align:right':''}">${esc(label)}</span></div>`;
-  const place=ms=>{ms.sort((x,y)=>x[0]-y[0]);let last=-99,lastLow=true;return ms.map(m=>{const low=m[0]-last<gap?!lastLow:false;last=m[0];lastLow=low;return marker(m[0],m[1],m[2],m[3],m[4],m[5],low)}).join('')};
-  const lanes=areas.map(a=>{let m='';const ms=[];const c=color(b,a);
+  let head='',grid='';for(let i=0;i<wk;i++){const d=new Date(start);d.setDate(d.getDate()+7*i);
+    head+=`<span class="sub" style="position:absolute;left:calc(${i/wk*100}% + 3px);top:-17px;white-space:nowrap;font-size:10.5px">${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</span>`;
+    grid+=`<div class="grid" style="left:${i/wk*100}%"></div>`}
+  const mk=(p,shape,col,hv,label,faded)=>{HOV.push(hv);return `<div class="mk" data-x="${p}" data-hi="${HOV.length-1}" style="left:${p}%;${faded?'opacity:.45':''}"><div class="m" style="${shape};background:${col}"></div><span class="lb">${esc(label)}</span></div>`};
+  const bar=(l,w,col,kind,hv)=>{HOV.push(hv);return `<div class="bar ${kind}" data-hi="${HOV.length-1}" style="left:${l}%;width:${w}%;background:${col};${kind==='waitb'?'opacity:.35':''}"></div>`};
+  const lane=(nm,inner)=>`<div class="lane">${nm}<div class="tr">${grid}<div class="now" style="left:${nowP}%"></div>${inner}</div></div>`;
+  const out=areas.map(a=>{let m='';const c=color(b,a);
     tasks.filter(t=>t.area===a).forEach(t=>{
-      if(t.state==='waiting'&&t.since){const l=pct(t.since);m+=`<div class="bar" title="${esc(t.title)} — waiting since ${fmt(t.since)}" style="left:${l}%;width:${Math.max(1,nowP-l)}%;top:22px;background:${c};opacity:.35"></div>`}
-      if(t.state==='doing'){const l=pct(t.status_as_of||t0.toISOString());m+=`<div class="bar" title="${esc(t.title)} — in progress" style="left:${Math.min(l,nowP-2)}%;width:${Math.max(2,nowP-Math.min(l,nowP-2))}%;top:30px;background:${c}"></div>`}
+      if(t.state==='waiting'&&t.since){const l=pct(t.since);m+=bar(l,Math.max(1,nowP-l),c,'waitb',hovTask(b,t))}
+      if(t.state==='doing'){const l=Math.min(pct(t.status_as_of||t0.toISOString()),nowP-2);m+=bar(l,Math.max(2,nowP-l),c,'doingb',hovTask(b,t))}
       const when=t.due||t.event_at;if(!when||!inWin(when))return;
       const past=diff(when)<0&&!['done','unknown'].includes(t.state);
-      ms.push([pct(when),t.due?'transform:rotate(45deg)':'border-radius:50%',past?'var(--bad)':c,tip(t),t.short||t.title.split(/[ ·–(]+/).slice(0,o.words||2).join(' '),t.state==='done'])});
-    m+=place(ms);
-    return `<div class="lane"><div class="nm"><span class="dot" style="background:${c}"></span>${esc(areaLabel(b,a))}</div><div class="tr">${m}</div></div>`});
+      m+=mk(pct(when),t.due?'transform:rotate(45deg) scale(.85)':'border-radius:50%',past?'var(--bad)':c,hovTask(b,t),t.short||t.title,t.state==='done'||SUGG(t))});
+    return lane(`<div class="nm"><span class="dot" style="background:${c}"></span>${esc(areaLabel(b,a))}</div>`,m)});
   if(o.milestones)(b.projects||[]).filter(p=>(p.milestones||[]).some(x=>x.date&&inWin(x.date))).forEach(p=>{const c=color(b,p.area);
-    const m=place(p.milestones.filter(x=>x.date&&inWin(x.date)).map(x=>[pct(x.date),'border-radius:2px',c,esc(x.title+' · '+fmt(x.date)+(x.state?' · '+x.state:'')+(x.basis?' · '+x.basis:'')),x.title,x.state==='done']));
-    lanes.push(`<div class="lane"><div class="nm" style="color:var(--sub)" title="${esc(p.name)}"><span class="dot" style="background:${c};border-radius:2px"></span><span style="overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</span></div><div class="tr">${m}</div></div>`)});
-  return `<div class="tl" style="display:flex;margin-top:24px"><div class="nmw"></div><div style="flex:1;position:relative;height:0">${weeks}<div style="position:absolute;left:${nowP}%;top:-3px;height:${46*lanes.length+3}px;border-left:1.5px solid var(--bad)"></div></div></div>${lanes.join('')}`}
+    const m=p.milestones.filter(x=>x.date&&inWin(x.date)).map(x=>mk(pct(x.date),'border-radius:2px',c,{title:x.title,color:c,lines:[`${p.name} · milestone`,`${x.state==='achieved'?'Achieved'+(x.achieved_at?' '+fmt(x.achieved_at):''):'Target '+fmt(x.date)+' ('+rel(x.date)+')'} · ${x.state}`,...(x.sources||[]).map(s=>'Source: '+s.ref)]},x.title,x.state==='achieved'||x.state==='cancelled')).join('');
+    out.push(lane(`<div class="nm" style="color:var(--sub)" title="${esc(p.name)}"><span class="dot" style="background:${c};border-radius:2px"></span><span style="overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</span></div>`,m))});
+  return `<div class="tl" style="display:flex;margin-top:24px"><div class="nmw"></div><div style="flex:1;position:relative;height:0">${head}</div></div><div class="tlw">${out.join('')}</div>`}
+function layoutTimelines(){
+  document.querySelectorAll('.lane .tr').forEach(tr=>{
+    const W=tr.clientWidth;if(!W)return;const RH=21;const ends=[];
+    [...tr.querySelectorAll('.mk')].sort((a,b)=>a.dataset.x-b.dataset.x).forEach(m=>{
+      m.classList.remove('flip');const x=W*m.dataset.x/100,w=m.offsetWidth;
+      let l=x-5,r=l+w;if(r>W-2){m.classList.add('flip');l=x+5-w;r=x+5}
+      let i=ends.findIndex(e=>e<l-6);if(i<0){i=ends.length;ends.push(0)}ends[i]=r;m.style.top=(5+i*RH)+'px'});
+    const bars=[...tr.querySelectorAll('.bar')];const h=Math.max(46,10+Math.max(1,ends.length)*RH+(bars.length?10:0));
+    tr.parentElement.style.height=h+'px';
+    bars.forEach(bb=>bb.style.top=(h-(bb.classList.contains('doingb')?9:15))+'px')})}
 
 function heartbeatHTML(b,detailed){
-  const projs=(b.projects||[]).slice().sort((x,y)=>{const o={active:0,unknown:1,parked:2,completed:3};return (o[x.state]??4)-(o[y.state]??4)||((x.last_evidenced_work?-diff(x.last_evidenced_work.date):999)-(y.last_evidenced_work?-diff(y.last_evidenced_work.date):999))});
-  const known=projs.filter(p=>p.state==='active'||p.last_evidenced_work),unk=projs.filter(p=>!(p.state==='active'||p.last_evidenced_work));
-  const hbRow=p=>{const lw=p.last_evidenced_work;const n=lw?-diff(lw.date):null;
+  const ord={active:0,unknown:1,parked:2,completed:3};
+  const age=p=>p.last_evidenced_work?-diff(p.last_evidenced_work.date):999;
+  const all=(b.projects||[]).slice().sort((x,y)=>(ord[x.state]??4)-(ord[y.state]??4)||age(x)-age(y));
+  const ids=new Set(all.map(p=>p.id));
+  const kids=p=>all.filter(c=>c.parent_id===p.id);
+  const roots=all.filter(p=>!p.parent_id||!ids.has(p.parent_id));
+  const hbRow=(p,child)=>{const lw=p.last_evidenced_work;const n=lw?-diff(lw.date):null;
     const c=n==null?'var(--muted)':n<=7?'var(--ok)':n<=21?'var(--warn)':'var(--bad)';
     const tipT=[p.state_note,lw?'Last evidenced work: '+lw.source+' ('+fmt(lw.date)+')':'No evidenced activity date',p.next?'Next ('+(p.next.basis||'')+'): '+p.next.text:'',p.note_path&&APP?'Click to open in Obsidian':''].filter(Boolean).join('\n');
-    const line=`<div class="hb" style="${p.note_path&&APP?'cursor:pointer':''}" title="${esc(tipT)}" ${p.note_path&&APP?`data-note="${esc(p.note_path)}"`:''}>
-      <span class="dot" style="background:${color(b,p.area)}"></span><span class="n" style="color:${p.state==='active'?'var(--text)':'var(--muted)'}">${esc(p.name)}</span>
+    const line=`<div class="hb ${child?'child':''}" style="${p.note_path&&APP?'cursor:pointer':''}" title="${esc(tipT)}" ${p.note_path&&APP?`data-note="${esc(p.note_path)}"`:''}>
+      <span class="dot" style="background:${color(b,p.area)}"></span><span class="n" style="color:${p.state==='active'?'var(--text)':'var(--muted)'}">${child?'↳ ':''}${esc(p.name)}</span>
       <div class="track">${n==null?'':`<div style="width:${Math.min(100,Math.max(3,n/42*100))}%;height:5px;border-radius:3px;background:${c}"></div>`}</div>
       <span class="v">${n==null?'unknown':n===0?'today':n+'d ago'}</span></div>`;
     if(!detailed)return line;
-    const meta=[p.next?`Next: ${esc(p.next.text)}${p.next.basis&&p.next.basis!=='confirmed'?` <span class="tag">${p.next.basis==='recommendation'?'suggested':'inferred'}</span>`:''}`:'',p.state&&p.state!=='active'?esc(p.state)+(p.state_note?' · '+esc(p.state_note):''):p.state_note?esc(p.state_note):'',lw?`Last work: ${esc(lw.source)}`:''].filter(Boolean);
-    return `<div class="hbx">${line}${meta.map(m=>`<div class="meta">${m}</div>`).join('')}</div>`};
-  return (known.map(hbRow).join('')+(unk.length?`<details><summary>No activity date or status (${unk.length})</summary>${unk.map(hbRow).join('')}</details>`:''))||'<div class="empty">No projects in snapshot.</div>'}
+    const meta=[p.next?`Next: ${esc(p.next.text)}${p.next.basis==='recommendation'?' <span class="tag sg">suggested</span>':p.next.basis==='inference'?' <span class="tag">inferred</span>':''}`:'',p.state&&p.state!=='active'?esc(p.state)+(p.state_note?' · '+esc(p.state_note):''):p.state_note?esc(p.state_note):'',lw?`Last work: ${esc(lw.source)}`:''].filter(Boolean);
+    return `<div class="hbx">${line}${meta.map(m=>`<div class="meta" style="${child?'padding-left:28px':''}">${m}</div>`).join('')}</div>`};
+  const tree=list=>list.map(p=>hbRow(p,false)+kids(p).map(k=>hbRow(k,true)).join('')).join('');
+  const known=roots.filter(p=>p.state==='active'||p.last_evidenced_work||kids(p).some(k=>k.last_evidenced_work)),unk=roots.filter(p=>!known.includes(p));
+  return (tree(known)+(unk.length?`<details><summary>No activity date or status (${unk.length})</summary>${tree(unk)}</details>`:''))||'<div class="empty">No projects in snapshot.</div>'}
 
-function vTimeline(b){
-  return timelineHTML(b,{back:1,weeks:6})+LEGEND+`<h2><span>Project heartbeat · days since last evidenced work</span></h2>`+heartbeatHTML(b,false)}
+function vTimeline(b){return timelineHTML(b,{back:1,weeks:6})+LEGEND+`<h2><span>Project heartbeat · days since last evidenced work</span></h2>`+heartbeatHTML(b,false)}
 
 function decisionsHTML(b,compact){const d=b.decisions||[];if(!d.length)return '';
-  return `<h2><span>Needs your decision</span><span>${d.length}</span></h2><div class="box">`+d.map(x=>`<div class="row" title="${esc([x.why,...(x.sources||[]).map(s=>'Source: '+s.ref+(s.date?' ('+fmt(s.date)+')':''))].filter(Boolean).join('\n'))}"><span class="dot" style="background:var(--warn)"></span><div class="t">${esc(x.question)}${x.basis==='recommendation'?'<span class="tag">suggested</span>':''}${!compact&&(x.options||[]).length?`<div class="sub">${x.options.map(esc).join(' · ')}</div>`:''}${!compact&&x.why?`<div class="sub">${esc(x.why)}</div>`:''}</div>${x.due?`<span class="pill ${diff(x.due)<=3?'warn':''}">${fmt(x.due)}</span>`:''}</div>`).join('')+'</div>'}
+  return `<h2><span>Needs your decision</span><span>${d.length}</span></h2><div class="box">`+d.map(x=>`<div class="row" title="${esc([x.why,x.status_as_of?'As of '+fmt(x.status_as_of):'',...(x.sources||[]).map(s=>'Source: '+s.ref+(s.date?' ('+fmt(s.date)+')':''))].filter(Boolean).join('\n'))}"><span class="dot" style="background:var(--warn)"></span><div class="t">${esc(x.question)}${x.basis==='recommendation'?'<span class="tag sg">suggested</span>':''}${!compact&&(x.options||[]).length?`<div class="sub">${x.options.map(esc).join(' · ')}</div>`:''}${!compact&&x.why?`<div class="sub">${esc(x.why)}</div>`:''}</div>${x.due?`<span class="pill ${diff(x.due)<=3?'warn':''}">${fmt(x.due)}</span>`:''}</div>`).join('')+'</div>'}
 
 function readingHTML(b){const r=b.reading||[];if(!r.length)return '';
-  return `<h2><span>Reading</span><span>${r.length}</span></h2>`+r.map(x=>`<div class="row"><div class="t">${x.url?`<a class="ext" data-url="${esc(x.url)}">${esc(x.title)}</a>`:esc(x.title)}${x.authors?`<div class="sub">${esc(x.authors)}</div>`:''}${x.why?`<div class="sub">${esc(x.why)}</div>`:''}</div></div>`).join('')}
+  const auth=a=>Array.isArray(a)?a.join(', '):a||'';
+  return `<h2><span>Reading</span><span>${r.length}</span></h2>`+r.map(x=>{const link=x.url||x.zotero_url;
+    return `<div class="row" title="${esc([x.why,x.recommended_at?'Recommended '+fmt(x.recommended_at):'',...(x.sources||[]).map(s=>'Source: '+s.ref+(s.date?' ('+fmt(s.date)+')':''))].filter(Boolean).join('\n'))}"><div class="t">${link?`<a class="ext" data-url="${esc(link)}">${esc(x.title)}</a>`:esc(x.title)}${x.authors?`<div class="sub">${esc(auth(x.authors))}${x.published?' · '+esc(String(x.published).slice(0,4)):''}</div>`:''}${x.why?`<div class="sub">${esc(x.why)}</div>`:''}</div>${x.url&&x.zotero_url?`<a class="ext sub" data-url="${esc(x.zotero_url)}">Zotero</a>`:''}</div>`}).join('')}
 
 function changesHTML(b,prev){
-  if(!prev||!prev.tasks)return `<h2><span>Changed since last snapshot</span></h2><div class="empty">Shown from the next refresh on.</div>`;
+  const head=t=>`<h2><span title="Compared with the previous snapshot this app saw, not necessarily yesterday">${t}</span>`;
+  if(!prev||!prev.tasks)return head('Changed since previous snapshot')+`</h2><div class="empty">Shown once the app has seen two snapshots.</div>`;
   const pm=Object.fromEntries(prev.tasks.map(t=>[t.id,t])),cm=new Set((b.tasks||[]).map(t=>t.id));
   const items=[];
   (b.tasks||[]).forEach(t=>{const o=pm[t.id];
     if(!o){items.push([t,'new']);return}
     if(o.state!==t.state)items.push([t,`${o.state} → ${t.state}`]);
-    else if((o.due||'')!==(t.due||''))items.push([t,o.due?`due ${fmt(o.due)} → ${t.due?fmt(t.due):'none'}`:`now due ${fmt(t.due)}`])});
+    else if((o.due||'')!==(t.due||''))items.push([t,o.due?`due ${fmt(o.due)} → ${t.due?fmt(t.due):'none'}`:`now due ${fmt(t.due)}`]);
+    else if((o.event_at||'')!==(t.event_at||''))items.push([t,`event date changed`])});
   const gone=prev.tasks.filter(t=>!cm.has(t.id));
-  const head=`<h2><span>Changed since ${fmtTime(prev.generated_at)}</span><span>${items.length+gone.length}</span></h2>`;
-  if(!items.length&&!gone.length)return head+'<div class="empty">No changes.</div>';
-  return head+items.map(([t,c])=>row(b,t,`<div class="sub">${esc(c)}</div>`)).join('')+gone.map(t=>`<div class="row"><span class="dot" style="background:var(--muted)"></span><div class="t" style="color:var(--muted)">${esc(t.title)}<div class="sub">no longer listed — not marked done</div></div></div>`).join('')}
+  const h=head(`Changed since ${fmtTime(prev.generated_at)}`)+`<span>${items.length+gone.length}</span></h2>`;
+  if(!items.length&&!gone.length)return h+'<div class="empty">No changes.</div>';
+  return h+items.map(([t,c])=>row(b,t,`<div class="sub">${esc(c)}</div>`)).join('')+gone.map(t=>`<div class="row"><span class="dot" style="background:var(--muted)"></span><div class="t" style="color:var(--muted)">${esc(t.title)}<div class="sub">no longer listed — not marked done</div></div></div>`).join('')}
 
 function tableHTML(b){
-  const tasks=b.tasks||[];
+  const tasks=b.tasks||[];const fbOn=!!(payload&&payload.feedbackEnabled);
   const inArea=t=>fArea==='all'||t.area===fArea;
-  const flt=t=>inArea(t)&&(fState==='all'||(fState==='open'?OPEN(t):t.state===fState));
+  const match=(t,s)=>s==='all'||(s==='open'?OPEN(t)&&!SUGG(t):s==='suggested'?OPEN(t)&&SUGG(t):t.state===s);
   const key=t=>fSort==='due'?(t.due||t.event_at||'9999'):fSort==='age'?(t.status_as_of||t.open_since||'0000'):t.title.toLowerCase();
-  const rows=tasks.filter(flt).sort((x,y)=>key(x)<key(y)?-1:key(x)>key(y)?1:0);
-  const n=s=>tasks.filter(t=>inArea(t)&&(s==='open'?OPEN(t):s==='all'||t.state===s)).length;
+  const rows=tasks.filter(t=>inArea(t)&&match(t,fState)).sort((x,y)=>key(x)<key(y)?-1:key(x)>key(y)?1:0);
+  const n=s=>tasks.filter(t=>inArea(t)&&match(t,s)).length;
   const chips=(name,cur,opts)=>opts.map(([v,l])=>`<button class="chip ${cur===v?'on':''}" data-f="${name}" data-v="${v}">${esc(l)}</button>`).join('');
-  const states=[['open','Open'],['unknown','Status ?'],['todo','To do'],['doing','Doing'],['waiting','Waiting'],['deferred','Deferred'],['done','Done'],['all','All']].filter(([v])=>v==='open'||v==='all'||n(v)).map(([v,l])=>[v,`${l} ${n(v)}`]);
+  const states=[['open','Open'],['unknown','Status ?'],['todo','To do'],['doing','Doing'],['waiting','Waiting'],['suggested','Suggested'],['deferred','Deferred'],['done','Done'],['all','All']].filter(([v])=>v==='open'||v==='all'||n(v)).map(([v,l])=>[v,`${l} ${n(v)}`]);
+  const sel=t=>fbOn?`<select class="fb" data-task="${esc(t.id)}" title="Tell the curator this item's real status"><option value="">Set status…</option>${ACTIONS.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>`:'';
   return `<h2><span>All items</span><span>${rows.length}</span></h2>
   <div class="chips">${chips('area',fArea,[['all','All areas'],...Object.keys(b.areas||{}).map(a=>[a,areaLabel(b,a)])])}</div>
   <div class="chips">${chips('state',fState,states)}<span style="flex:1"></span>${chips('sort',fSort,[['due','By date'],['age','Oldest status'],['title','A–Z']])}</div>
-  <div class="tr2 head"><span></span><span>Item</span><span>State</span><span style="text-align:right" title="Days since the state was last confirmed">Age</span><span style="text-align:right">Date</span></div>
-  ${rows.map(t=>`<div class="tr2 ${t.note_path&&APP?'link':''}" title="${tip(t)}" ${t.note_path&&APP?`data-note="${esc(t.note_path)}"`:''}><span class="dot" style="background:${color(b,t.area)}"></span><span class="tt">${esc(t.title)}${tags(t).replace('<span class="tag">status ?</span>','')}</span><span class="st st-${esc(t.state)}">${esc(t.state==='unknown'?'status ?':t.state)}</span><span class="age">${t.status_as_of?(-diff(t.status_as_of))+'d':''}</span><span class="dd">${dueChip(t)}</span></div>`).join('')||'<div class="empty">Nothing matches.</div>'}`}
+  <div class="tr2 head"><span></span><span>Item</span><span>State</span><span style="text-align:right" title="Days since the state was last confirmed">Age</span><span style="text-align:right">Date</span><span>${fbOn?'Update':''}</span></div>
+  ${rows.map(t=>`<div class="tr2 ${t.note_path&&APP?'link':''}" title="${tip(t)}" ${t.note_path&&APP?`data-note="${esc(t.note_path)}"`:''}><span class="dot" style="background:${color(b,t.area)}"></span><span class="tt">${esc(t.title)}${tags(t,true)}</span><span class="st st-${esc(t.state)}">${esc(t.state==='unknown'?'status ?':t.state)}</span><span class="age">${t.status_as_of?(-diff(t.status_as_of))+'d':''}</span><span class="dd">${dueChip(t)}</span><span>${OPEN(t)||t.state==='done'?sel(t):''}</span></div>`).join('')||'<div class="empty">Nothing matches.</div>'}
+  ${fbOn?'<div class="sub" style="margin-top:6px">Status updates go to the curator and apply at its next run. They don’t edit your notes.</div>':''}`}
 
 function coverageHTML(b){const c=b.coverage||[];if(!c.length)return '';
   const col={checked:'var(--ok)',partial:'var(--warn)',unavailable:'var(--bad)',not_configured:'var(--muted)'};
-  return `<h2><span>Sources this run</span></h2>`+c.map(x=>`<div class="cvl" title="${esc(x.note||'')}"><span class="dot" style="width:7px;height:7px;margin-top:5px;background:${col[x.status]||'var(--muted)'}"></span><span>${esc(x.source)}</span><span style="color:var(--muted)">${esc(x.status.replace('_',' '))}${x.note?' · '+esc(x.note):''}</span></div>`).join('')}
+  return `<h2><span>Sources this run</span></h2>`+c.map(x=>`<div class="cvl" title="${esc(x.note||'')}"><span class="dot" style="width:7px;height:7px;margin-top:5px;background:${col[x.status]||'var(--muted)'}"></span><span>${esc(x.source)}</span><span style="color:var(--muted)">${esc(x.status.replace('_',' '))}${x.checked_at?' · '+esc(fmtTime(x.checked_at)):''}${x.note?' · '+esc(x.note):''}</span></div>`).join('')}
 
+function openCount(b){const t=b.tasks||[];const o=t.filter(x=>OPEN(x)&&!SUGG(x)).length,s=t.filter(x=>OPEN(x)&&SUGG(x)).length;return `${o} open${s?` · ${s} suggested`:''}`}
 function vFull(b){
-  const prev=payload.previous;const now=new Date();
-  const btns=`<div class="btns">${APP?'<button class="btn" data-act="fullscreen">Full screen</button>':'<button class="btn" data-act="collapse">Compact view</button>'}${APP?'<button class="btn" data-act="reload">Reload</button>':''}</div>`;
-  let h=`<div class="fhead"><div style="min-width:0;flex:1"><div style="font-size:20px;font-weight:600">${now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})} <span class="sub" style="font-size:12px;font-weight:400">${(b.tasks||[]).filter(OPEN).length} open · updated ${fmtTime(b.generated_at)}</span></div>${b.brief?`<div class="brief">${esc(b.brief)}</div>`:''}${b.question&&b.question.text?`<div class="q" title="${esc(b.question.why||'')}">Question: ${esc(b.question.text)}</div>`:''}</div>${btns}</div>`;
-  h+=`<div class="full"><section>${decisionsHTML(b)}${vToday(b,{noBrief:true,noRest:true,noDecisions:true})}${changesHTML(b,prev)}</section>
-    <section><h2><span>Timeline · 10 weeks</span></h2>${timelineHTML(b,{back:2,weeks:10,milestones:true,words:4})}${LEGEND}${tableHTML(b)}</section>
-    <section><h2><span>Projects · days since last evidenced work</span></h2>${heartbeatHTML(b,true)}${readingHTML(b)}${coverageHTML(b)}</section></div>`;
-  return h}
+  const now=new Date();
+  const btns=`<div class="btns">${APP?'<button class="btn" data-act="fullscreen">Full screen</button><button class="btn" data-act="reload">Reload</button>':'<button class="btn" data-act="collapse">Compact view</button>'}</div>`;
+  return `<div class="fhead"><div style="min-width:0;flex:1"><div style="font-size:20px;font-weight:600">${now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})} <span class="sub" style="font-size:12px;font-weight:400">${openCount(b)} · updated ${fmtTime(b.generated_at)}</span></div>${b.brief?`<div class="brief">${esc(b.brief)}</div>`:''}${questionHTML(b)}</div>${btns}</div>
+  <div class="full"><section>${decisionsHTML(b)}${vToday(b,{noBrief:true,noRest:true,noDecisions:true})}${changesHTML(b,payload.previous)}</section>
+    <section><h2><span>Timeline · 10 weeks</span></h2>${timelineHTML(b,{back:2,weeks:10,milestones:true})}${LEGEND}${tableHTML(b)}</section>
+    <section><h2><span>Projects · days since last evidenced work</span></h2>${heartbeatHTML(b,true)}${readingHTML(b)}${coverageHTML(b)}</section></div>`}
 
 function shiftFixture(p){const b=p&&p.board;if(!b||!b.fixture||b._shifted)return p;
   const off=Math.round((today()-day(b.generated_at))/864e5);if(!off)return p;
   const sh=v=>{if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}/.test(v))return v;const d=new Date(v.length===10?v+'T12:00:00':v);d.setDate(d.getDate()+off);
     return v.length===10?d.toLocaleDateString('en-CA'):v.replace(/^\d{4}-\d{2}-\d{2}/,d.toLocaleDateString('en-CA'))};
-  const walk=o=>{if(Array.isArray(o))return o.map(walk);if(o&&typeof o==='object'){for(const k in o)o[k]=/^(due|event_at|since|open_since|status_as_of|date|generated_at|next_refresh_at|checked_at)$/.test(k)?sh(o[k]):walk(o[k]);}return o};
+  const walk=o=>{if(Array.isArray(o))return o.map(walk);if(o&&typeof o==='object'){for(const k in o)o[k]=/^(due|event_at|since|open_since|status_as_of|date|generated_at|next_refresh_at|checked_at|achieved_at|recommended_at|recorded_at|processed_at)$/.test(k)?sh(o[k]):walk(o[k]);}return o};
   walk(b);if(p.previous)walk(p.previous);b._shifted=true;return p}
+
 function render(p){
   if(p)p=shiftFixture(p);
-  payload=p||payload;const b=payload&&payload.board,h=payload&&payload.health;
+  payload=p||payload;HOV=[];hideHov();
+  const b=payload&&payload.board,h=payload&&payload.health;
   const app=document.getElementById('app');const full=isFull();
   document.body.classList.toggle('isfull',full);
   if(!b){app.innerHTML=healthBanner(h||{state:'missing',message:'No board snapshot yet.'})+'<div class="empty">The morning curator writes <code>board.json</code>. Nothing to show until then.</div>'+foot(null,h);bind();return}
   let html=healthBanner(h,b);
   if(b.fixture)html+='<div class="banner warn">Example data — not a real curator snapshot</div>';
-  if(full){html+=vFull(b)+foot(b,h);app.innerHTML=html;bind();return}
-  const now=new Date();const nd=(b.decisions||[]).length;
-  html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:600">${now.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</span><span style="flex:1"></span><span class="sub">${(b.tasks||[]).filter(OPEN).length} open${nd?` · ${nd} decision${nd>1?'s':''}`:''}</span><button class="iconbtn" data-act="expand" title="Open the full board (or double-click anywhere)">Expand ↗</button></div>`;
-  html+=`<div class="tabs"><button data-tab="today" class="${tab==='today'?'on':''}">Today</button><button data-tab="timeline" class="${tab==='timeline'?'on':''}">Timeline</button></div>`;
-  html+=tab==='timeline'?vTimeline(b):vToday(b);
-  html+=foot(b,h);app.innerHTML=html;bind()}
+  if(full)html+=vFull(b);
+  else{const nd=(b.decisions||[]).length;
+    html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:600">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</span><span style="flex:1"></span><span class="sub">${openCount(b)}${nd?` · ${nd} decision${nd>1?'s':''}`:''}</span><button class="iconbtn" data-act="expand" title="Open the full board (or double-click anywhere)">Expand ↗</button></div>`;
+    html+=`<div class="tabs"><button data-tab="today" class="${tab==='today'?'on':''}">Today</button><button data-tab="timeline" class="${tab==='timeline'?'on':''}">Timeline</button></div>`;
+    html+=tab==='timeline'?vTimeline(b):vToday(b)}
+  app.innerHTML=html+foot(b,h);bind();layoutTimelines()}
 function foot(b,h){
   const cov=b&&b.coverage?b.coverage.map(c=>{const col={checked:'var(--ok)',partial:'var(--warn)',unavailable:'var(--bad)',not_configured:'var(--muted)'}[c.status]||'var(--muted)';
     return `<span class="cov" title="${esc(c.source+': '+c.status.replace('_',' ')+(c.note?' — '+c.note:'')+(c.checked_at?' · '+fmtTime(c.checked_at):''))}"><span class="dot" style="width:6px;height:6px;background:${col}"></span>${esc(c.source.split(' (')[0])}</span>`}).join(''):'';
   return `<div class="foot">${b?`<span>Updated ${fmtTime(b.generated_at)}${b.next_refresh_at?' · next '+fmtTime(b.next_refresh_at):''}</span>`:''}<span style="flex-basis:100%;height:0"></span>${cov}${APP?'<span style="flex:1"></span><a data-act="reload">Reload</a><a data-act="openfile">JSON</a><a data-act="quit">Quit</a>':''}</div>`}
+
+function hov(){let e=document.getElementById('hov');if(!e){e=document.createElement('div');e.id='hov';e.hidden=true;document.body.appendChild(e)}return e}
+function hideHov(){const e=document.getElementById('hov');if(e)e.hidden=true}
+function showHov(i,ev){const d=HOV[i];if(!d)return;const e=hov();
+  e.innerHTML=`<div class="ht"><span class="dot" style="background:${d.color};margin-right:6px"></span>${esc(d.title)}</div>${d.lines.map(l=>`<div class="hl">${esc(l)}</div>`).join('')}`;
+  e.hidden=false;const pad=14,r=e.getBoundingClientRect();
+  let x=ev.clientX+pad,y=ev.clientY+pad;if(x+r.width>innerWidth-8)x=ev.clientX-r.width-pad;if(y+r.height>innerHeight-8)y=ev.clientY-r.height-pad;
+  e.style.left=Math.max(8,x)+'px';e.style.top=Math.max(8,y)+'px'}
+function toast(msg,err){let t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t)}
+  t.textContent=msg;t.className=err?'err':'';t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,err?8000:3500)}
+window.feedbackResult=r=>toast(r&&r.ok?'Saved. The curator applies it at its next run.':'Couldn’t save: '+((r&&r.error)||'unknown error'),!(r&&r.ok));
+
 function expand(){if(APP&&window.BOARD_MODE!=='full')post({act:'expand'});else{localFull=true;render()}}
 function act(a){if(a==='expand')return expand();if(a==='collapse'){localFull=false;return render()}post({act:a})}
 function bind(){
   document.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>{tab=e.dataset.tab;try{localStorage.setItem('tab',tab)}catch(x){}render()});
-  document.querySelectorAll('[data-note]').forEach(e=>e.onclick=()=>post({open:e.dataset.note}));
-  document.querySelectorAll('[data-url]').forEach(e=>e.onclick=()=>APP?post({url:e.dataset.url}):window.open(e.dataset.url,'_blank','noopener'));
+  document.querySelectorAll('[data-note]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('select'))return;post({open:e.dataset.note})});
+  document.querySelectorAll('[data-url]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();APP?post({url:e.dataset.url}):window.open(e.dataset.url,'_blank','noopener')});
   document.querySelectorAll('[data-act]').forEach(e=>e.onclick=()=>act(e.dataset.act));
-  document.querySelectorAll('[data-f]').forEach(e=>e.onclick=()=>{const v=e.dataset.v;if(e.dataset.f==='area')fArea=v;else if(e.dataset.f==='state')fState=v;else fSort=v;render()})}
-document.addEventListener('dblclick',e=>{if(!isFull()&&!e.target.closest('.row,.hb,button,a,summary,.mk'))expand()});
-let wasFull=null;addEventListener('resize',()=>{if(window.BOARD_MODE)return;const f=isFull();if(f!==wasFull){wasFull=f;if(payload)render()}});
+  document.querySelectorAll('[data-f]').forEach(e=>e.onclick=()=>{const v=e.dataset.v;if(e.dataset.f==='area')fArea=v;else if(e.dataset.f==='state')fState=v;else fSort=v;render()});
+  document.querySelectorAll('[data-hi]').forEach(e=>{e.onmousemove=ev=>showHov(+e.dataset.hi,ev);e.onmouseleave=hideHov;
+    const d=HOV[+e.dataset.hi];if(d&&d.note&&APP)e.onclick=()=>post({open:d.note})});
+  document.querySelectorAll('select.fb').forEach(s=>{s.onclick=ev=>ev.stopPropagation();s.onchange=()=>{const a=s.value;if(!a)return;
+    const b=payload.board,t=(b.tasks||[]).find(x=>x.id===s.dataset.task);s.value='';
+    if(!APP){toast('Status updates need the BoardBar app.',true);return}
+    post({feedback:{task_id:t.id,action:a,previous_state:t.state,snapshot_generated_at:b.generated_at,note:''}})}})}
+document.addEventListener('dblclick',e=>{if(!isFull()&&!e.target.closest('.row,.hb,button,a,summary,.mk,select'))expand()});
+let wasFull=null;addEventListener('resize',()=>{if(!payload)return;const f=isFull();if(!window.BOARD_MODE&&f!==wasFull){wasFull=f;render()}else layoutTimelines()});
 window.render=render;
 function webHealth(b){const now=Date.now();
   if(b.fixture)return {state:'ok'};
-  if(b.next_refresh_at){return now>new Date(b.next_refresh_at).getTime()+3*36e5?{state:'stale',message:'Expected refresh has not arrived'}:{state:'ok'}}
+  if(b.next_refresh_at)return now>new Date(b.next_refresh_at).getTime()+3*36e5?{state:'stale',message:'Expected refresh has not arrived'}:{state:'ok'};
   return now-new Date(b.generated_at).getTime()>36*36e5?{state:'stale',message:'Snapshot is older than 36h'}:{state:'ok'}}
 if(!APP){
   const qs=new URLSearchParams(location.search);const src=qs.get('board')||'board.json',prevSrc=qs.get('previous');

@@ -68,8 +68,7 @@
       "state": "todo",
       "basis": "confirmed",
       "due": "2026-10-16T17:00:00-04:00",
-      "status_as_of": "2026-10-13",
-      "effort": "half-day"
+      "status_as_of": "2026-10-13"
     },
     {
       "id": "visa-letter",
@@ -77,8 +76,7 @@
       "area": "life",
       "state": "todo",
       "basis": "recommendation",
-      "why": "Workshop is 5 weeks out; letters usually take 2–3 weeks",
-      "effort": "15m"
+      "why": "Workshop is 5 weeks out; letters usually take 2–3 weeks"
     },
     {
       "id": "reviewer-response",
@@ -184,14 +182,18 @@
         {
           "title": "Ch. 2 to advisor",
           "date": "2026-10-14",
-          "state": "doing",
-          "basis": "confirmed"
+          "state": "planned",
+          "basis": "confirmed",
+          "id": "thesis-m1",
+          "status_as_of": "2026-10-13"
         },
         {
           "title": "Committee meeting",
           "date": "2026-11-12",
-          "state": "todo",
-          "basis": "confirmed"
+          "state": "planned",
+          "basis": "confirmed",
+          "id": "thesis-m2",
+          "status_as_of": "2026-10-13"
         }
       ]
     },
@@ -208,14 +210,18 @@
         {
           "title": "Rebuttal",
           "date": "2026-10-24",
-          "state": "todo",
-          "basis": "confirmed"
+          "state": "planned",
+          "basis": "confirmed",
+          "id": "paper-sparse-m1",
+          "status_as_of": "2026-10-13"
         },
         {
           "title": "Camera-ready",
           "date": "2026-11-20",
-          "state": "todo",
-          "basis": "confirmed"
+          "state": "planned",
+          "basis": "confirmed",
+          "id": "paper-sparse-m2",
+          "status_as_of": "2026-10-13"
         }
       ]
     },
@@ -244,12 +250,15 @@
       "name": "Literature survey",
       "area": "research",
       "state": "unknown",
-      "state_note": "Milestone unclear"
+      "state_note": "Milestone unclear",
+      "parent_id": "thesis"
     }
   ],
   "question": {
-    "text": "Should the rebuttal include the new ablation, or keep it for the camera-ready?",
-    "why": "Rerun finishes after the co-author's edits are due"
+    "text": "Is the reading-group slot still yours this term?",
+    "why": "The deferred reading-group task has no owner noted",
+    "task_id": "reading-group",
+    "basis": "confirmed"
   },
   "decisions": [
     {
@@ -262,30 +271,78 @@
       ],
       "why": "Rerun results land Oct 22; rebuttal due Oct 24",
       "due": "2026-10-20",
-      "basis": "recommendation"
+      "basis": "recommendation",
+      "status_as_of": "2026-10-13",
+      "sources": [
+        {
+          "ref": "Advisor meeting notes",
+          "date": "2026-10-13",
+          "confidence": "high"
+        }
+      ],
+      "task_id": "rebuttal-deadline"
     },
     {
       "id": "workshop-travel",
       "question": "Attend the workshop in person or remotely?",
       "why": "Visa letter needed for in-person",
-      "basis": "confirmed"
+      "basis": "confirmed",
+      "status_as_of": "2026-10-13",
+      "sources": [
+        {
+          "ref": "Advisor meeting notes",
+          "date": "2026-10-13",
+          "confidence": "high"
+        }
+      ]
     }
   ],
   "reading": [
     {
       "id": "r1",
       "title": "Efficient Sparse Attention via Learned Routing",
-      "authors": "A. Rivera, K. Osei",
+      "authors": [
+        "A. Rivera",
+        "K. Osei"
+      ],
+      "published": "2026-06-02",
       "url": "https://example.org/sparse-routing",
       "why": "Closest prior work for the rebuttal",
-      "source": "Reference manager"
+      "recommended_at": "2026-10-12",
+      "tags": [
+        "sparse-attention"
+      ],
+      "sources": [
+        {
+          "ref": "Reference manager",
+          "date": "2026-10-12",
+          "confidence": "high"
+        }
+      ]
     },
     {
       "id": "r2",
       "title": "A Practical Guide to Ablation Hygiene",
-      "authors": "M. Chen",
+      "authors": [
+        "M. Chen"
+      ],
       "why": "Seed handling for the rerun",
-      "source": "Reference manager"
+      "recommended_at": "2026-10-09",
+      "sources": [
+        {
+          "ref": "Reference manager",
+          "date": "2026-10-09",
+          "confidence": "medium"
+        }
+      ]
     }
-  ]
+  ],
+  "schema_revision": "1.1",
+  "feedback_receipts": {
+    "5d1f2c3a-0000-4000-8000-000000000002": {
+      "status": "conflict",
+      "processed_at": "2026-10-14T07:00:00-04:00",
+      "reason": "A newer email asks to move office hours again"
+    }
+  }
 }
