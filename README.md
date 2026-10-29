@@ -44,6 +44,22 @@ The **expanded view** adds:
 
 Suggestions (`basis: "recommendation"`) get their own group and aren't counted as open work.
 
+**Triage** (press **T** in the full board, or click **Triage** in the popover) shows one card at a time, starting with unconfirmed items, oldest first:
+
+<img src="docs/triage.jpg" width="620" alt="Triage card being dragged right, with a STILL ON stamp and keyboard hints">
+
+| Swipe or drag | Key | Sends |
+|---|---|---|
+| right | `Space` | still on (`todo`) |
+| left | `⌫` | cancel task (`cancelled`) |
+| | `↵` | `done` |
+| | `W` / `I` | `waiting` / `doing` |
+| | `→` | skip, nothing sent |
+| | `⌘Z` | undo |
+| | `N` / `O` / `Esc` | add a note / open the note / finish |
+
+Each answer is held for 5 seconds before it's written to the feedback log, so `⌘Z` removes it cleanly. After that, undo brings the card back and the newer answer wins. Queued answers are written when you finish or close the window.
+
 It warns you when the snapshot is late (3h past `next_refresh_at`), missing, or invalid. If the new file is invalid, it keeps showing the last good snapshot.
 
 ## Install

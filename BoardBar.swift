@@ -18,6 +18,7 @@ final class Store: ObservableObject {
     @Published var health: [String: Any] = ["state": "missing", "message": "No board snapshot yet."]
     @Published var topCount = 0
     @Published private var feedbackRaw = "[]"
+    @Published var triageRequest = 0
     static let feedbackActions: Set<String> = ["done", "todo", "doing", "waiting", "cancelled"]
     var feedbackEnabled: Bool { UserDefaults.standard.object(forKey: "feedbackEnabled") as? Bool ?? true }
     var feedbackPath: String {
@@ -155,7 +156,7 @@ final class Store: ObservableObject {
             guard let o, let d = try? JSONSerialization.data(withJSONObject: o) else { return "null" }
             return String(data: d, encoding: .utf8) ?? "null"
         }
-        return "{\"health\":\(json(health)),\"board\":\(boardRaw ?? "null"),\"previous\":\(json(previous)),\"feedback\":\(feedbackRaw),\"feedbackEnabled\":\(feedbackEnabled)}"
+        return "{\"health\":\(json(health)),\"board\":\(boardRaw ?? "null"),\"previous\":\(json(previous)),\"feedback\":\(feedbackRaw),\"feedbackEnabled\":\(feedbackEnabled),\"triageRequest\":\(triageRequest)}"
     }
 
     var icon: String {
@@ -170,6 +171,7 @@ final class Store: ObservableObject {
 final class ExpandedWindow: NSObject, NSWindowDelegate {
     static let shared = ExpandedWindow()
     private var window: NSWindow?
+    weak var web: WKWebView?
 
     func show(store: Store) {
         if window == nil {
@@ -191,11 +193,15 @@ final class ExpandedWindow: NSObject, NSWindowDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+        if let web { window?.makeFirstResponder(web) }
     }
 
     func toggleFullScreen() { window?.toggleFullScreen(nil) }
 
-    func windowWillClose(_ notification: Notification) { NSApp.setActivationPolicy(.accessory) }
+    func windowWillClose(_ notification: Notification) {
+        web?.evaluateJavaScript("window.flushFeedback && flushFeedback()")
+        NSApp.setActivationPolicy(.accessory)
+    }
 }
 
 struct WebBoard: NSViewRepresentable {
@@ -212,6 +218,7 @@ struct WebBoard: NSViewRepresentable {
         let web = WKWebView(frame: .zero, configuration: config)
         web.setValue(false, forKey: "drawsBackground")
         context.coordinator.web = web
+        if mode == "full" { ExpandedWindow.shared.web = web }
         if let url = Bundle.main.url(forResource: "board", withExtension: "html") {
             web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         }
@@ -265,6 +272,7 @@ struct WebBoard: NSViewRepresentable {
             case "reload": store.reload(force: true); push()
             case "openfile": NSWorkspace.shared.open(URL(fileURLWithPath: store.path))
             case "expand": ExpandedWindow.shared.show(store: store)
+            case "triage": store.triageRequest += 1; ExpandedWindow.shared.show(store: store)
             case "fullscreen": ExpandedWindow.shared.toggleFullScreen()
             case "quit": NSApp.terminate(nil)
             default: break

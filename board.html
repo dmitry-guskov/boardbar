@@ -87,6 +87,19 @@ select.fb{font:inherit;font-size:11px;color:var(--sub);background:var(--card);bo
 #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:6px 12px;border-radius:7px;font-size:12px;z-index:11}
 #toast.err{background:var(--bad-bg);color:var(--bad)}
 .child .n{padding-left:12px}
+.tri{max-width:660px;margin:0 auto}
+.prog{height:3px;background:var(--card);border-radius:2px;margin:12px 0 14px}.prog>div{height:3px;background:var(--accent);border-radius:2px;transition:width .2s}
+.tcard{background:var(--card);border-radius:14px;padding:22px 26px;min-height:250px;position:relative;cursor:grab;touch-action:none;user-select:none}
+.tcard .ttl{font-size:22px;font-weight:600;line-height:1.3;margin:8px 0 10px;text-wrap:balance}
+.stamp{position:absolute;top:16px;padding:2px 10px;border:2px solid;border-radius:6px;font-weight:700;font-size:13px;letter-spacing:.06em;opacity:0;pointer-events:none}
+.stamp.keep{right:18px;color:var(--ok);border-color:var(--ok);transform:rotate(8deg)}
+.stamp.drop{left:18px;color:var(--bad);border-color:var(--bad);transform:rotate(-8deg)}
+.tbtns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
+.tb-done{border-color:var(--ok)}.tb-cancelled{border-color:var(--bad)}.tb-todo{border-color:var(--accent)}
+.btn[disabled]{opacity:.45;cursor:default}
+kbd{font:10.5px ui-monospace,SFMono-Regular,Menlo,monospace;border:.5px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);margin-left:4px}
+#tnote{width:100%;margin-top:10px;min-height:52px;font:inherit;font-size:13px;color:var(--text);background:var(--bg);border:.5px solid var(--line);border-radius:7px;padding:6px 8px;resize:vertical;user-select:text}
+@media (prefers-reduced-motion:reduce){.prog>div{transition:none}}
 </style>
 </head>
 <body>
@@ -291,7 +304,8 @@ function coverageHTML(b){const c=b.coverage||[];if(!c.length)return '';
 function openCount(b){const t=b.tasks||[];const o=t.filter(x=>OPEN(x)&&!SUGG(x)).length,s=t.filter(x=>OPEN(x)&&SUGG(x)).length;return `${o} open${s?` · ${s} suggested`:''}`}
 function vFull(b){
   const now=new Date();
-  const btns=`<div class="btns">${APP?'<button class="btn" data-act="fullscreen">Full screen</button><button class="btn" data-act="reload">Reload</button>':'<button class="btn" data-act="collapse">Compact view</button>'}</div>`;
+  const nq=triagePool(b,'unknown').length;
+  const btns=`<div class="btns"><button class="btn" data-act="triage" title="Review items one by one">Triage${nq?' '+nq:''} <kbd>T</kbd></button>${APP?'<button class="btn" data-act="fullscreen">Full screen</button><button class="btn" data-act="reload">Reload</button>':'<button class="btn" data-act="collapse">Compact view</button>'}</div>`;
   return `<div class="fhead"><div style="min-width:0;flex:1"><div style="font-size:20px;font-weight:600">${now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})} <span class="sub" style="font-size:12px;font-weight:400">${openCount(b)} · updated ${fmtTime(b.generated_at)}</span></div>${b.brief?`<div class="brief">${esc(b.brief)}</div>`:''}${questionHTML(b)}</div>${btns}</div>
   <div class="full"><section>${decisionsHTML(b)}${vToday(b,{noBrief:true,noRest:true,noDecisions:true})}${changesHTML(b,payload.previous)}</section>
     <section><h2><span>Timeline · 10 weeks</span></h2>${timelineHTML(b,{back:2,weeks:10,milestones:true})}${LEGEND}${tableHTML(b)}</section>
@@ -304,6 +318,92 @@ function shiftFixture(p){const b=p&&p.board;if(!b||!b.fixture||b._shifted)return
   const walk=o=>{if(Array.isArray(o))return o.map(walk);if(o&&typeof o==='object'){for(const k in o)o[k]=/^(due|event_at|since|open_since|status_as_of|date|generated_at|next_refresh_at|checked_at|achieved_at|recommended_at|recorded_at|processed_at)$/.test(k)?sh(o[k]):walk(o[k]);}return o};
   walk(b);if(p.previous)walk(p.previous);b._shifted=true;return p}
 
+let TR=null,TRseen=0,TRlocal=[];
+const TACT={todo:['Still on','Space'],cancelled:['Cancel task','⌫'],done:['Done','↵'],waiting:['Waiting','W'],doing:['In progress','I']};
+const statusAge=t=>t.status_as_of?-diff(t.status_as_of):(t.open_since?-diff(t.open_since):999);
+function hasPending(id){if(TRlocal.some(e=>e.task_id===id))return true;const f=feedbackFor(id);return !!(f&&!f.rc)}
+function triagePool(b,mode){const t=(b.tasks||[]).filter(x=>OPEN(x)&&!SUGG(x)&&!hasPending(x.id));
+  const q=mode==='unknown'?t.filter(x=>x.state==='unknown'):mode==='stale'?t.filter(x=>statusAge(x)>14):t;
+  return q.sort((a,c)=>statusAge(c)-statusAge(a)).map(x=>x.id)}
+function startTriage(mode){const b=payload&&payload.board;if(!b)return;
+  if(!mode)mode=['unknown','stale','all'].find(m=>triagePool(b,m).length)||'unknown';
+  TR={mode,queue:triagePool(b,mode),i:0,log:[],note:'',dx:0};render()}
+function endTriage(){flushFeedback();TR=null;render()}
+function commitEvent(e){clearTimeout(e.timer);if(e.sent)return;e.sent=true;TRlocal=TRlocal.filter(x=>x!==e);
+  if(APP)post({feedback:{task_id:e.task_id,action:e.action,previous_state:e.previous_state,snapshot_generated_at:e.snapshot_generated_at,note:e.note}})}
+window.flushFeedback=()=>{TRlocal.slice().forEach(commitEvent)};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)flushFeedback()});
+function decide(action){if(!TR||TR.i>=TR.queue.length)return;
+  const b=payload.board,t=(b.tasks||[]).find(x=>x.id===TR.queue[TR.i]);if(!t)return;
+  const e={task_id:t.id,action,previous_state:t.state,snapshot_generated_at:b.generated_at,note:TR.note.trim(),title:t.title,sent:false};
+  e.timer=setTimeout(()=>commitEvent(e),5000);TRlocal.push(e);TR.log.push({kind:'decide',e,i:TR.i});
+  advance(action==='cancelled'?-1:1)}
+function skip(){if(!TR||TR.i>=TR.queue.length)return;TR.log.push({kind:'skip',i:TR.i});advance(1)}
+function advance(dir){const c=document.getElementById('tcard');TR.note='';TR.dx=0;
+  const go=()=>{TR.i++;render()};
+  if(c&&!matchMedia('(prefers-reduced-motion: reduce)').matches){c.style.transition='transform .2s ease, opacity .2s';c.style.transform=`translateX(${dir*520}px) rotate(${dir*14}deg)`;c.style.opacity='0';setTimeout(go,190)}else go()}
+function undo(){if(!TR||!TR.log.length)return;const last=TR.log.pop();TR.i=last.i;TR.dx=0;
+  if(last.kind==='decide'){const e=last.e;
+    if(!e.sent){clearTimeout(e.timer);TRlocal=TRlocal.filter(x=>x!==e);TR.note=e.note;toast('Undone')}
+    else toast('Already sent. Choose again and the newer status wins.')}
+  render()}
+function vTriage(b){
+  const counts={unknown:triagePool(b,'unknown').length,stale:triagePool(b,'stale').length,all:triagePool(b,'all').length};
+  const modes=[['unknown','Status ?'],['stale','Status older than 2 weeks'],['all','All open']].map(([v,l])=>`<button class="chip ${TR.mode===v?'on':''}" data-tmode="${v}">${l} ${v===TR.mode?TR.queue.length:counts[v]}</button>`).join('');
+  const n=TR.queue.length,i=Math.min(TR.i,n);
+  let h=`<div class="tri"><div class="fhead"><div style="flex:1;min-width:0"><div style="font-size:20px;font-weight:600">Triage</div><div class="sub">Tell the curator what's really going on. Each answer is sent after 5 seconds; ⌘Z undoes it before then.</div></div><div class="btns"><button class="btn" data-act="endtriage">Finish <kbd>Esc</kbd></button></div></div>
+    <div class="chips" style="margin-top:10px">${modes}</div>
+    <div class="prog"><div style="width:${n?i/n*100:100}%"></div></div>`;
+  if(i<n){const t=(b.tasks||[]).find(x=>x.id===TR.queue[i]);
+    const proj=(b.projects||[]).find(p=>p.id===t.project_id);const age=statusAge(t);
+    const facts=[t.due?`Due ${fmt(t.due)} (${rel(t.due)})`:'',t.event_at?`Event ${fmt(t.event_at)} (${rel(t.event_at)})`:'',`Status: ${t.state==='unknown'?'unknown':t.state}${age<999?` · last confirmed ${age===0?'today':age+' days ago'}`:''}`,t.waiting_on?`Waiting on ${t.waiting_on}${t.since?' since '+fmt(t.since):''}`:'',t.open_since?`Captured ${fmt(t.open_since)}`:'',proj?`Project: ${proj.name}`:''].filter(Boolean);
+    h+=`<div class="sub" style="text-align:center;margin-bottom:8px">${i+1} of ${n}</div>
+    <div class="tcard" id="tcard"><span class="stamp keep" id="skeep">STILL ON</span><span class="stamp drop" id="sdrop">CANCEL</span>
+      <div class="sub"><span class="dot" style="background:${color(b,t.area)};margin-right:6px"></span>${esc(areaLabel(b,t.area))}${t.priority==='high'?' · high priority':''}${t.basis==='inference'?' · inferred':''}</div>
+      <div class="ttl">${esc(t.title)}</div>
+      ${t.why?`<div style="font-size:14px;margin-bottom:10px">${esc(t.why)}</div>`:''}
+      ${facts.map(f=>`<div class="hl sub" style="font-size:12.5px">${esc(f)}</div>`).join('')}
+      ${(t.sources||[]).length?`<div class="sub" style="margin-top:8px">${(t.sources||[]).map(s=>esc(s.ref+(s.date?' · '+fmt(s.date):''))).join('<br>')}</div>`:''}
+      <div style="margin-top:12px;display:flex;gap:12px;align-items:center">${t.note_path&&APP?`<a class="ext" data-note="${esc(t.note_path)}">Open note <kbd>O</kbd></a>`:''}<a class="ext" data-act="tnote">${TR.note||TR.noteOpen?'Note':'Add a note'} <kbd>N</kbd></a></div>
+      <textarea id="tnote" placeholder="Optional note for the curator, e.g. paid on Oct 25" ${TR.noteOpen||TR.note?'':'hidden'}>${esc(TR.note)}</textarea>
+    </div>
+    <div class="tbtns">${['cancelled','waiting','doing','done','todo'].map(a=>`<button class="btn tb tb-${a}" data-decide="${a}">${TACT[a][0]} <kbd>${TACT[a][1]}</kbd></button>`).join('')}</div>
+    <div class="tbtns" style="margin-top:6px"><button class="btn" data-act="tskip">Skip <kbd>→</kbd></button><button class="btn" data-act="tundo" ${TR.log.length?'':'disabled'}>Undo <kbd>⌘Z</kbd></button></div>
+    <div class="sub" style="text-align:center;margin-top:10px">Swipe or drag right for still on, left to cancel</div>`}
+  else{const tally={};TR.log.filter(l=>l.kind==='decide').forEach(l=>tally[l.e.action]=(tally[l.e.action]||0)+1);const sk=TR.log.filter(l=>l.kind==='skip').length;
+    h+=`<div class="tcard" style="text-align:center;cursor:default"><div class="ttl">${n?'All caught up':'Nothing to review here'}</div>
+      <div style="font-size:14px">${Object.entries(tally).map(([a,c])=>`${TACT[a][0]}: ${c}`).join(' · ')||'No answers given'}${sk?` · Skipped: ${sk}`:''}</div>
+      <div class="sub" style="margin-top:8px">Your answers go to the curator and appear on the board after its next run.</div>
+      <div class="tbtns">${TR.log.length?'<button class="btn" data-act="tundo">Undo last <kbd>⌘Z</kbd></button>':''}<button class="btn" data-act="endtriage">Back to the board <kbd>Esc</kbd></button></div></div>`}
+  return h+'</div>'}
+function bindTriage(){const c=document.getElementById('tcard');
+  document.querySelectorAll('[data-decide]').forEach(e=>e.onclick=()=>decide(e.dataset.decide));
+  document.querySelectorAll('[data-tmode]').forEach(e=>e.onclick=()=>{flushFeedback();startTriage(e.dataset.tmode)});
+  const ta=document.getElementById('tnote');if(ta){ta.oninput=()=>TR.note=ta.value;ta.onkeydown=ev=>{if(ev.key==='Escape'){ev.stopPropagation();ta.blur()}};if(TR.noteOpen&&!ta.hidden){ta.focus();TR.noteOpen=false}}
+  if(!c||!document.getElementById('skeep'))return;
+  const setDx=dx=>{TR.dx=dx;c.style.transform=`translateX(${dx}px) rotate(${dx/25}deg)`;
+    document.getElementById('skeep').style.opacity=Math.max(0,Math.min(1,dx/120));document.getElementById('sdrop').style.opacity=Math.max(0,Math.min(1,-dx/120))};
+  const release=()=>{if(TR.dx>130)decide('todo');else if(TR.dx<-130)decide('cancelled');else{c.style.transition='transform .2s';setDx(0);setTimeout(()=>{c.style.transition=''},200)}};
+  let drag=null;
+  c.onpointerdown=ev=>{if(ev.target.closest('a,textarea,button'))return;drag={x:ev.clientX};c.setPointerCapture(ev.pointerId);c.style.transition='none'};
+  c.onpointermove=ev=>{if(drag)setDx(ev.clientX-drag.x)};
+  c.onpointerup=c.onpointercancel=()=>{if(!drag)return;drag=null;release()};
+  let wt=null;
+  c.parentElement.onwheel=ev=>{if(Math.abs(ev.deltaX)<=Math.abs(ev.deltaY))return;ev.preventDefault();c.style.transition='none';setDx(TR.dx-ev.deltaX);clearTimeout(wt);wt=setTimeout(release,140)}}
+document.addEventListener('keydown',ev=>{
+  const inField=!!(ev.target&&ev.target.closest&&ev.target.closest('textarea,input,select'));
+  if(!TR){if(isFull()&&(ev.key==='t'||ev.key==='T')&&!ev.metaKey&&!inField){ev.preventDefault();startTriage()}return}
+  if(inField)return;
+  const k=ev.key;
+  if((ev.metaKey||ev.ctrlKey)&&(k==='z'||k==='Z')){ev.preventDefault();return undo()}
+  if(ev.metaKey||ev.ctrlKey||ev.altKey)return;
+  const map={' ':'todo','Backspace':'cancelled','Delete':'cancelled','Enter':'done','w':'waiting','W':'waiting','i':'doing','I':'doing'};
+  if(map[k]){ev.preventDefault();return decide(map[k])}
+  if(k==='ArrowRight'||k==='s'||k==='S'){ev.preventDefault();return skip()}
+  if(k==='Escape'){ev.preventDefault();return endTriage()}
+  if(k==='o'||k==='O'){const t=payload.board.tasks.find(x=>x.id===TR.queue[TR.i]);if(t&&t.note_path&&APP)post({open:t.note_path});return}
+  if(k==='n'||k==='N'){ev.preventDefault();TR.noteOpen=true;render()}});
+
 function render(p){
   if(p)p=shiftFixture(p);
   payload=p||payload;HOV=[];hideHov();
@@ -313,12 +413,13 @@ function render(p){
   if(!b){app.innerHTML=healthBanner(h||{state:'missing',message:'No board snapshot yet.'})+'<div class="empty">The morning curator writes <code>board.json</code>. Nothing to show until then.</div>'+foot(null,h);bind();return}
   let html=healthBanner(h,b);
   if(b.fixture)html+='<div class="banner warn">Example data — not a real curator snapshot</div>';
-  if(full)html+=vFull(b);
+  if(full&&payload.triageRequest>TRseen){TRseen=payload.triageRequest;if(!TR)setTimeout(()=>startTriage(),0)}
+  if(full)html+=TR?vTriage(b):vFull(b);
   else{const nd=(b.decisions||[]).length;
-    html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:600">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</span><span style="flex:1"></span><span class="sub">${openCount(b)}${nd?` · ${nd} decision${nd>1?'s':''}`:''}</span><button class="iconbtn" data-act="expand" title="Open the full board (or double-click anywhere)">Expand ↗</button></div>`;
+    html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:600">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</span><span style="flex:1"></span><span class="sub">${openCount(b)}${nd?` · ${nd} decision${nd>1?'s':''}`:''}</span>${payload.feedbackEnabled!==false&&triagePool(b,'unknown').length?`<button class="iconbtn" data-act="triage" title="Review unconfirmed items one by one">Triage ${triagePool(b,'unknown').length}</button>`:''}<button class="iconbtn" data-act="expand" title="Open the full board (or double-click anywhere)">Expand ↗</button></div>`;
     html+=`<div class="tabs"><button data-tab="today" class="${tab==='today'?'on':''}">Today</button><button data-tab="timeline" class="${tab==='timeline'?'on':''}">Timeline</button></div>`;
     html+=tab==='timeline'?vTimeline(b):vToday(b)}
-  app.innerHTML=html+foot(b,h);bind();layoutTimelines()}
+  app.innerHTML=html+(TR&&full?'':foot(b,h));bind();if(TR&&full)bindTriage();else layoutTimelines()}
 function foot(b,h){
   const cov=b&&b.coverage?b.coverage.map(c=>{const col={checked:'var(--ok)',partial:'var(--warn)',unavailable:'var(--bad)',not_configured:'var(--muted)'}[c.status]||'var(--muted)';
     return `<span class="cov" title="${esc(c.source+': '+c.status.replace('_',' ')+(c.note?' — '+c.note:'')+(c.checked_at?' · '+fmtTime(c.checked_at):''))}"><span class="dot" style="width:6px;height:6px;background:${col}"></span>${esc(c.source.split(' (')[0])}</span>`}).join(''):'';
@@ -333,10 +434,13 @@ function showHov(i,ev){const d=HOV[i];if(!d)return;const e=hov();
   e.style.left=Math.max(8,x)+'px';e.style.top=Math.max(8,y)+'px'}
 function toast(msg,err){let t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t)}
   t.textContent=msg;t.className=err?'err':'';t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,err?8000:3500)}
-window.feedbackResult=r=>toast(r&&r.ok?'Saved. The curator applies it at its next run.':'Couldn’t save: '+((r&&r.error)||'unknown error'),!(r&&r.ok));
+window.feedbackResult=r=>{if(TR&&r&&r.ok)return;toast(r&&r.ok?'Saved. The curator applies it at its next run.':'Couldn’t save: '+((r&&r.error)||'unknown error'),!(r&&r.ok))};
 
 function expand(){if(APP&&window.BOARD_MODE!=='full')post({act:'expand'});else{localFull=true;render()}}
-function act(a){if(a==='expand')return expand();if(a==='collapse'){localFull=false;return render()}post({act:a})}
+function act(a){if(a==='expand')return expand();if(a==='collapse'){localFull=false;return render()}
+  if(a==='triage'){if(isFull())return startTriage();if(APP)return post({act:'triage'});localFull=true;return startTriage()}
+  if(a==='endtriage')return endTriage();if(a==='tskip')return skip();if(a==='tundo')return undo();if(a==='tnote'){TR.noteOpen=true;return render()}
+  post({act:a})}
 function bind(){
   document.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>{tab=e.dataset.tab;try{localStorage.setItem('tab',tab)}catch(x){}render()});
   document.querySelectorAll('[data-note]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('select'))return;post({open:e.dataset.note})});
@@ -349,7 +453,7 @@ function bind(){
     const b=payload.board,t=(b.tasks||[]).find(x=>x.id===s.dataset.task);s.value='';
     if(!APP){toast('Status updates need the BoardBar app.',true);return}
     post({feedback:{task_id:t.id,action:a,previous_state:t.state,snapshot_generated_at:b.generated_at,note:''}})}})}
-document.addEventListener('dblclick',e=>{if(!isFull()&&!e.target.closest('.row,.hb,button,a,summary,.mk,select'))expand()});
+document.addEventListener('dblclick',e=>{if(!TR&&!isFull()&&e.target.closest&&!e.target.closest('.row,.hb,button,a,summary,.mk,select'))expand()});
 let wasFull=null;addEventListener('resize',()=>{if(!payload)return;const f=isFull();if(!window.BOARD_MODE&&f!==wasFull){wasFull=f;render()}else layoutTimelines()});
 window.render=render;
 function webHealth(b){const now=Date.now();
