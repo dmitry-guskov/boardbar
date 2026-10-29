@@ -91,13 +91,15 @@ select.fb{font:inherit;font-size:11px;color:var(--sub);background:var(--card);bo
 .tri>.fhead,.tri>.chips,.tri>.prog,.tri>.tbtns,.tri>.tnotebar{max-width:660px;margin-left:auto;margin-right:auto}
 .prog{height:3px;background:var(--card);border-radius:2px;margin:12px 0 14px}.prog>div{height:3px;background:var(--accent);border-radius:2px;transition:width .2s}
 .wheel{position:relative;height:320px;overflow:hidden;perspective:1600px;margin-top:4px}
-.wheel .tcard{position:absolute;left:50%;top:50%;width:min(600px,52%);max-height:440px;overflow:hidden;background:var(--card);border-radius:14px;padding:20px 24px;cursor:pointer;transform-origin:50% 50%;will-change:transform,opacity;box-shadow:0 1px 0 var(--line)}
+.wheel .tcard{position:absolute;left:50%;top:50%;width:min(460px,40%);min-height:380px;max-height:520px;overflow:hidden;background:var(--card);border-radius:14px;padding:20px 24px;cursor:pointer;transform-origin:50% 50%;will-change:transform,opacity;box-shadow:0 1px 0 var(--line)}
 .wheel.snap .tcard{transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s}
-.wheel .tcard.cur{cursor:default;outline:.5px solid var(--sub);max-height:none}
+.wheel .tcard.cur{cursor:default;outline:.5px solid var(--sub);max-height:none;display:flex;flex-direction:column}
+.wheel .tcard.cur .det{flex:1;display:flex;flex-direction:column}
+.topen{margin-top:auto;padding-top:12px}
 .wheel .tcard:not(.cur) .det{display:none}
-.wheel .tcard:not(.cur){padding:14px 18px;width:min(280px,24%)}.wheel .tcard:not(.cur) .ttl{font-size:15px;margin:4px 0 0}
+.wheel .tcard:not(.cur){padding:16px 18px;width:min(240px,20%);min-height:300px}.wheel .tcard:not(.cur) .ttl{font-size:16px;margin:6px 0 0;line-height:1.35}
 .wheel .tcard:not(.cur) .tbadge{position:static;margin-bottom:6px}
-.tcard .ttl{font-size:21px;font-weight:600;line-height:1.3;margin:6px 0 8px;text-wrap:balance}
+.tcard .ttl{font-size:22px;font-weight:600;line-height:1.28;margin:8px 0 12px;text-wrap:balance}
 .twhy{font-size:13.5px;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .tcard.cur .twhy{-webkit-line-clamp:unset;display:block}
 .tbadge{position:absolute;top:14px;right:16px;display:flex;gap:6px}
@@ -436,7 +438,7 @@ function cardHTML(b,t,i){const proj=(b.projects||[]).find(p=>p.id===t.project_id
     ${facts.map(f=>`<div class="hl sub" style="font-size:12.5px">${esc(f)}</div>`).join('')}
     ${(t.sources||[]).length?`<div class="sub" style="margin-top:6px">${(t.sources||[]).map(s=>esc(s.ref+(s.date?' · '+fmt(s.date):''))).join('<br>')}</div>`:''}
     ${commentsFor(t.id).map(c=>`<div class="cmt"><div>${esc(c.e.note)}</div><div class="sub">your comment · ${c.rc?'reviewed':'for review at '+esc(nextRun())}</div></div>`).join('')}
-    ${t.note_path&&APP?`<div style="margin-top:10px"><a class="ext" data-note="${esc(t.note_path)}">Open note <kbd>O</kbd></a></div>`:''}</div></div>`}
+    ${t.note_path&&APP?`<div class="topen"><a class="ext" data-note="${esc(t.note_path)}">Open note <kbd>O</kbd></a></div>`:''}</div></div>`}
 function vTriage(b){
   const counts={unknown:triagePool(b,'unknown').length,stale:triagePool(b,'stale').length,all:triagePool(b,'all').length};
   const modes=[['unknown','Status ?'],['stale','Status older than 2 weeks'],['all','All open']].map(([v,l])=>`<button class="chip ${TR.mode===v?'on':''}" data-tmode="${v}">${l} ${v===TR.mode?TR.queue.length:counts[v]}</button>`).join('');
