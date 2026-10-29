@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import WebKit
 
@@ -79,7 +80,7 @@ final class Store: ObservableObject {
         let attrs = try? FileManager.default.attributesOfItem(atPath: path)
         let mtime = attrs?[.modificationDate] as? Date
         if mtime == nil {
-            health = ["state": "missing", "message": "board.json not found"]
+            setHealth(["state": "missing", "message": "board.json not found"])
         } else if force || mtime != lastMTime {
             lastMTime = mtime
             if let data = try? Data(contentsOf: URL(fileURLWithPath: path)), let obj = validate(data) {
@@ -91,14 +92,20 @@ final class Store: ObservableObject {
                 board = obj
                 boardRaw = String(data: data, encoding: .utf8)
                 try? data.write(to: cacheURL, options: .atomic)
-                health = ["state": "ok"]
+                setHealth(["state": "ok"])
             } else {
-                health = ["state": "invalid", "message": "Latest board.json is invalid — keeping last good snapshot"]
+                setHealth(["state": "invalid", "message": "Latest board.json is invalid — keeping last good snapshot"])
             }
         }
-        if healthState == "ok", let b = board { health = staleness(b) }
+        if healthState == "ok", let b = board { setHealth(staleness(b)) }
         loadFeedback()
-        topCount = (board?["top_ids"] as? [String])?.count ?? 0
+        let top = (board?["top_ids"] as? [String])?.count ?? 0
+        if top != topCount { topCount = top }
+    }
+
+    /// @Published fires on every assignment, so only assign when the value really changed.
+    private func setHealth(_ h: [String: Any]) {
+        if (h["state"] as? String) != (health["state"] as? String) || (h["message"] as? String) != (health["message"] as? String) { health = h }
     }
 
     func staleness(_ b: [String: Any]) -> [String: Any] {
@@ -170,122 +177,143 @@ final class Store: ObservableObject {
     }
 }
 
+/// One long-lived web view per surface. Creating it once (and keeping it) means opening the
+/// popover shows an already-rendered page instead of reloading and re-rendering it.
+final class BoardWeb: NSObject, WKScriptMessageHandler {
+    static let popover = BoardWeb(store: .shared, mode: "popover")
+    let web: WKWebView
+    let store: Store
+    let mode: String
+    private var ready = false
+    private var lastPayload = ""
+    private var changes: AnyCancellable?
+
+    init(store: Store, mode: String) {
+        self.store = store
+        self.mode = mode
+        let config = WKWebViewConfiguration()
+        config.userContentController.addUserScript(WKUserScript(
+            source: "window.BOARD_MODE='\(mode)';", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        web = WKWebView(frame: NSRect(x: 0, y: 0, width: 440, height: 620), configuration: config)
+        super.init()
+        config.userContentController.add(self, name: "app")
+        web.setValue(false, forKey: "drawsBackground")
+        web.autoresizingMask = [.width, .height]
+        if let url = Bundle.main.url(forResource: "board", withExtension: "html") {
+            web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        }
+        changes = store.objectWillChange
+            .debounce(for: .milliseconds(30), scheduler: RunLoop.main)
+            .sink { [weak self] _ in self?.push() }
+    }
+
+    func push() {
+        guard ready else { return }
+        let payload = store.payloadJSON
+        guard payload != lastPayload else { return }
+        lastPayload = payload
+        web.evaluateJavaScript("render(\(payload))")
+    }
+
+    func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any] else { return }
+        if let note = body["open"] as? String {
+            var comps = URLComponents(string: "obsidian://open")!
+            comps.queryItems = [URLQueryItem(name: "vault", value: vaultName), URLQueryItem(name: "file", value: note)]
+            if let url = comps.url { NSWorkspace.shared.open(url) }
+        }
+        if let fb = body["feedback"] as? [String: Any] {
+            let error = store.appendFeedback(fb)
+            let result = error.map { ["ok": false, "error": $0] as [String: Any] } ?? ["ok": true]
+            if let d = try? JSONSerialization.data(withJSONObject: result), let s = String(data: d, encoding: .utf8) {
+                web.evaluateJavaScript("feedbackResult(\(s))")
+            }
+        }
+        if let link = body["url"] as? String, let url = URL(string: link), ["http", "https", "zotero"].contains(url.scheme ?? "") {
+            NSWorkspace.shared.open(url)
+        }
+        switch body["act"] as? String {
+        case "ready":
+            ready = true; lastPayload = ""; push()
+            if mode == "full", let i = CommandLine.arguments.firstIndex(of: "--snapshot"), i + 1 < CommandLine.arguments.count {
+                let out = CommandLine.arguments[i + 1]
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                    self?.web.takeSnapshot(with: nil) { image, _ in
+                        if let tiff = image?.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
+                           let png = rep.representation(using: .png, properties: [:]) {
+                            try? png.write(to: URL(fileURLWithPath: out))
+                        }
+                    }
+                }
+            }
+        case "reload": store.reload(force: true); lastPayload = ""; push()
+        case "openfile": NSWorkspace.shared.open(URL(fileURLWithPath: store.path))
+        case "expand": ExpandedWindow.shared.show()
+        case "triage": store.triageRequest += 1; ExpandedWindow.shared.show()
+        case "fullscreen": ExpandedWindow.shared.toggleFullScreen()
+        case "quit": NSApp.terminate(nil)
+        default: break
+        }
+    }
+}
+
 final class ExpandedWindow: NSObject, NSWindowDelegate {
     static let shared = ExpandedWindow()
     private var window: NSWindow?
-    weak var web: WKWebView?
+    private var board: BoardWeb?
 
-    func show(store: Store) {
+    func show() {
         if window == nil {
+            let b = BoardWeb(store: .shared, mode: "full")
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1320, height: 860),
                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
                              backing: .buffered, defer: false)
             w.title = "Board"
             w.isReleasedWhenClosed = false
             w.collectionBehavior = [.fullScreenPrimary]
-            w.contentViewController = NSHostingController(rootView:
-                WebBoard(store: store, mode: "full")
-                    .frame(minWidth: 900, maxWidth: .infinity, minHeight: 600, maxHeight: .infinity))
-            w.setContentSize(NSSize(width: 1320, height: 860))
+            w.contentMinSize = NSSize(width: 900, height: 600)
+            w.contentView = b.web
             w.center()
             w.setFrameAutosaveName("BoardBarExpanded")
             w.delegate = self
             window = w
+            board = b
         }
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
-        if let web { window?.makeFirstResponder(web) }
+        if let web = board?.web { window?.makeFirstResponder(web) }
     }
 
     func toggleFullScreen() { window?.toggleFullScreen(nil) }
 
     func windowWillClose(_ notification: Notification) {
-        web?.evaluateJavaScript("window.flushFeedback && flushFeedback()")
+        board?.web.evaluateJavaScript("window.flushFeedback && flushFeedback()")
         NSApp.setActivationPolicy(.accessory)
     }
 }
 
-struct WebBoard: NSViewRepresentable {
-    @ObservedObject var store: Store
-    var mode = "popover"
-
-    func makeCoordinator() -> Coordinator { Coordinator(store: store) }
-
-    func makeNSView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.userContentController.add(context.coordinator, name: "app")
-        config.userContentController.addUserScript(WKUserScript(
-            source: "window.BOARD_MODE='\(mode)';", injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        let web = WKWebView(frame: .zero, configuration: config)
-        web.setValue(false, forKey: "drawsBackground")
-        context.coordinator.web = web
-        if mode == "full" { ExpandedWindow.shared.web = web }
-        if let url = Bundle.main.url(forResource: "board", withExtension: "html") {
-            web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
-        }
-        return web
+/// Hosts a long-lived web view inside SwiftUI without recreating it.
+struct WebHost: NSViewRepresentable {
+    let board: BoardWeb
+    func makeNSView(context: Context) -> NSView {
+        let container = NSView()
+        board.web.frame = container.bounds
+        container.addSubview(board.web)
+        return container
     }
-
-    func updateNSView(_ web: WKWebView, context: Context) { context.coordinator.push() }
-
-    final class Coordinator: NSObject, WKScriptMessageHandler {
-        let store: Store
-        weak var web: WKWebView?
-        var ready = false
-        init(store: Store) { self.store = store }
-
-        func push() {
-            guard ready, let web else { return }
-            web.evaluateJavaScript("render(\(store.payloadJSON))")
-        }
-
-        func userContentController(_ c: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard let body = message.body as? [String: Any] else { return }
-            if let note = body["open"] as? String {
-                var comps = URLComponents(string: "obsidian://open")!
-                comps.queryItems = [URLQueryItem(name: "vault", value: vaultName), URLQueryItem(name: "file", value: note)]
-                if let url = comps.url { NSWorkspace.shared.open(url) }
-            }
-            if let fb = body["feedback"] as? [String: Any] {
-                let error = store.appendFeedback(fb)
-                let result = error.map { ["ok": false, "error": $0] as [String: Any] } ?? ["ok": true]
-                if let d = try? JSONSerialization.data(withJSONObject: result), let s = String(data: d, encoding: .utf8) {
-                    web?.evaluateJavaScript("feedbackResult(\(s))")
-                }
-            }
-            if let link = body["url"] as? String, let url = URL(string: link), ["http", "https", "zotero"].contains(url.scheme ?? "") {
-                NSWorkspace.shared.open(url)
-            }
-            switch body["act"] as? String {
-            case "ready":
-                ready = true; push()
-                if let i = CommandLine.arguments.firstIndex(of: "--snapshot"), i + 1 < CommandLine.arguments.count, web?.window != nil {
-                    let out = CommandLine.arguments[i + 1]
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-                        self?.web?.takeSnapshot(with: nil) { image, _ in
-                            if let tiff = image?.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),
-                               let png = rep.representation(using: .png, properties: [:]) {
-                                try? png.write(to: URL(fileURLWithPath: out))
-                            }
-                        }
-                    }
-                }
-            case "reload": store.reload(force: true); push()
-            case "openfile": NSWorkspace.shared.open(URL(fileURLWithPath: store.path))
-            case "expand": ExpandedWindow.shared.show(store: store)
-            case "triage": store.triageRequest += 1; ExpandedWindow.shared.show(store: store)
-            case "fullscreen": ExpandedWindow.shared.toggleFullScreen()
-            case "quit": NSApp.terminate(nil)
-            default: break
-            }
+    func updateNSView(_ container: NSView, context: Context) {
+        if board.web.superview !== container {
+            board.web.frame = container.bounds
+            container.addSubview(board.web)
         }
     }
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if CommandLine.arguments.contains("--expanded") { ExpandedWindow.shared.show(store: Store.shared) }
+        _ = BoardWeb.popover
+        if CommandLine.arguments.contains("--expanded") { ExpandedWindow.shared.show() }
     }
 }
 
@@ -296,7 +324,7 @@ struct BoardBarApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            WebBoard(store: store)
+            WebHost(board: BoardWeb.popover)
                 .frame(width: 440, height: 620)
                 .onAppear { store.reload(force: false) }
         } label: {

@@ -277,15 +277,17 @@ function timelineHTML(b,o){
     out.push(lane(`<div class="nm" style="color:var(--sub)" title="${esc(p.name)}"><span class="dot" style="background:${c};border-radius:2px"></span><span style="overflow:hidden;text-overflow:ellipsis">${esc(p.name)}</span></div>`,m))});
   return `<div class="tl" style="display:flex;margin-top:24px"><div class="nmw"></div><div style="flex:1;position:relative;height:0">${head}</div></div><div class="tlw">${out.join('')}</div>`}
 function layoutTimelines(){
-  document.querySelectorAll('.lane .tr').forEach(tr=>{
-    const W=tr.clientWidth;if(!W)return;const RH=21;const ends=[];
-    [...tr.querySelectorAll('.mk')].sort((a,b)=>a.dataset.x-b.dataset.x).forEach(m=>{
-      m.classList.remove('flip');const x=W*m.dataset.x/100,w=m.offsetWidth;
-      let l=x-5,r=l+w;if(r>W-2){m.classList.add('flip');l=x+5-w;r=x+5}
-      let i=ends.findIndex(e=>e<l-6);if(i<0){i=ends.length;ends.push(0)}ends[i]=r;m.style.top=(5+i*RH)+'px'});
-    const bars=[...tr.querySelectorAll('.bar')];const h=Math.max(46,10+Math.max(1,ends.length)*RH+(bars.length?10:0));
-    tr.parentElement.style.height=h+'px';
-    bars.forEach(bb=>bb.style.top=(h-(bb.classList.contains('doingb')?9:15))+'px')})}
+  // Read every size first, then write: interleaving reads and writes forces a full relayout per marker.
+  const lanes=[...document.querySelectorAll('.lane .tr')].map(tr=>{const mks=[...tr.querySelectorAll('.mk')];mks.forEach(m=>m.classList.remove('flip'));return {tr,mks,bars:[...tr.querySelectorAll('.bar')]}});
+  lanes.forEach(L=>{L.W=L.tr.clientWidth;L.mks.forEach(m=>{m._w=m.offsetWidth;m._x=+m.dataset.x})});
+  const RH=21;
+  lanes.forEach(L=>{if(!L.W)return;const ends=[];
+    L.plan=L.mks.slice().sort((a,b)=>a._x-b._x).map(m=>{const x=L.W*m._x/100;let l=x-5,r=l+m._w,flip=false;
+      if(r>L.W-2){flip=true;l=x+5-m._w;r=x+5}
+      let i=ends.findIndex(e=>e<l-6);if(i<0){i=ends.length;ends.push(0)}ends[i]=r;return {m,flip,top:5+i*RH}});
+    L.h=Math.max(46,10+Math.max(1,ends.length)*RH+(L.bars.length?10:0))});
+  lanes.forEach(L=>{if(!L.plan)return;L.plan.forEach(p=>{if(p.flip)p.m.classList.add('flip');p.m.style.top=p.top+'px'});
+    L.tr.parentElement.style.height=L.h+'px';L.bars.forEach(bb=>bb.style.top=(L.h-(bb.classList.contains('doingb')?9:15))+'px')})}
 
 function heartbeatHTML(b,detailed){
   const ord={active:0,unknown:1,parked:2,completed:3};
