@@ -46,22 +46,22 @@ The **expanded view** adds:
 
 Suggestions (`basis: "recommendation"`) get their own group and aren't counted as open work.
 
-**Triage** (press **T** in the full board, or click **Triage** in the popover) shows one card at a time, starting with unconfirmed items, oldest first:
+**Triage** (press **T** in the full board, or click **Triage** in the popover) arranges items on a scrollable wheel, starting with unconfirmed items, oldest first. The current card shows full details, and its neighbours fade out above and below. Scroll with the trackpad, use `↑` `↓`, or click a neighbour. Each answer moves you to the next unanswered card, and answered cards keep a badge, so you can scroll back and change your mind.
 
-<img src="docs/triage.jpg" width="620" alt="Triage card being dragged right, with a STILL ON stamp and keyboard hints">
+<img src="docs/triage.jpg" width="620" alt="Triage wheel: the current card in the centre with previous and next cards fading above and below, and answer buttons with keyboard hints">
 
-| Swipe or drag | Key | Sends |
-|---|---|---|
-| right | `Space` | still on (`todo`) |
-| left | `⌫` | cancel task (`cancelled`) |
-| | `↵` | `done` |
-| | `W` / `I` | `waiting` / `doing` |
-| | `→` | skip, nothing sent |
-| | `⌘Z` | undo |
-| | `C` | comment without changing the status |
-| | `N` / `O` / `Esc` | add a note / open the note / finish |
+| Key | Sends |
+|---|---|
+| `Space` | still on (`todo`) |
+| `⌫` | cancel task (`cancelled`) |
+| `↵` | `done` |
+| `W` / `I` | `waiting` / `doing` |
+| `N` | note to send with your next answer (`↵` keeps it, `Esc` discards it) |
+| `C` | comment without changing the status (sends the typed note, if there is one) |
+| `⌘Z` | undo |
+| `O` / `Esc` | open the note / finish |
 
-Each answer is held for 5 seconds before it's written to the feedback log, so `⌘Z` removes it cleanly. After that, undo brings the card back and the newer answer wins. Queued answers are written when you finish or close the window.
+Each answer is held for 5 seconds before it's written to the feedback log, so `⌘Z` removes it cleanly. After that, a new answer for the same card wins. Queued answers are written when you finish or close the window.
 
 It warns you when the snapshot is late (3h past `next_refresh_at`), missing, or invalid. If the new file is invalid, it keeps showing the last good snapshot.
 

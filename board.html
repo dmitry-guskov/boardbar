@@ -70,7 +70,7 @@ body.isfull{max-width:none;padding:18px 28px 14px}
 .st{font-size:11px;color:var(--sub)}.st-unknown{color:var(--warn)}.st-waiting{color:var(--accent)}.st-doing{color:var(--ok)}
 .age,.dd{text-align:right;font-size:11px;color:var(--muted)}
 .hbx{padding:4px 0 6px;border-bottom:.5px solid var(--line)}
-.hbx .meta{padding-left:16px;font-size:11.5px;color:var(--muted)}
+.hbx .meta{padding-left:16px;font-size:11.5px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .cvl{display:grid;grid-template-columns:10px 120px minmax(0,1fr);gap:6px;font-size:11.5px;padding:3px 0;color:var(--sub)}
 .q{margin-top:6px;font-size:13px;color:var(--sub)}
 a.ext{color:var(--accent);text-decoration:none;cursor:pointer}
@@ -89,16 +89,25 @@ select.fb{font:inherit;font-size:11px;color:var(--sub);background:var(--card);bo
 .child .n{padding-left:12px}
 .tri{max-width:660px;margin:0 auto}
 .prog{height:3px;background:var(--card);border-radius:2px;margin:12px 0 14px}.prog>div{height:3px;background:var(--accent);border-radius:2px;transition:width .2s}
-.tcard{background:var(--card);border-radius:14px;padding:22px 26px;min-height:250px;position:relative;cursor:grab;touch-action:none;user-select:none}
-.tcard .ttl{font-size:22px;font-weight:600;line-height:1.3;margin:8px 0 10px;text-wrap:balance}
-.stamp{position:absolute;top:16px;padding:2px 10px;border:2px solid;border-radius:6px;font-weight:700;font-size:13px;letter-spacing:.06em;opacity:0;pointer-events:none}
-.stamp.keep{right:18px;color:var(--ok);border-color:var(--ok);transform:rotate(8deg)}
-.stamp.drop{left:18px;color:var(--bad);border-color:var(--bad);transform:rotate(-8deg)}
+.wheel{position:relative;height:min(520px,58vh);overflow:hidden;perspective:1300px;margin-top:4px}
+.wheel .tcard{position:absolute;left:50%;top:50%;width:min(640px,92%);max-height:420px;overflow:hidden;background:var(--card);border-radius:14px;padding:20px 24px;cursor:pointer;transform-origin:50% 50%;will-change:transform,opacity;box-shadow:0 1px 0 var(--line)}
+.wheel.snap .tcard{transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s}
+.wheel .tcard.cur{cursor:default;outline:.5px solid var(--sub);max-height:none}
+.wheel .tcard:not(.cur) .det{display:none}
+.wheel .tcard:not(.cur){padding:12px 24px}.wheel .tcard:not(.cur) .ttl{font-size:16px;margin:2px 0 0}
+.tcard .ttl{font-size:21px;font-weight:600;line-height:1.3;margin:6px 0 8px;text-wrap:balance}
+.twhy{font-size:13.5px;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.tcard.cur .twhy{-webkit-line-clamp:unset;display:block}
+.tbadge{position:absolute;top:14px;right:16px;display:flex;gap:6px}
+.pill.okp{background:var(--card);color:var(--ok);border:.5px solid var(--ok)}
+.tnotebar{max-width:640px;margin:8px auto 0}.tnotebar input{width:100%;font:inherit;font-size:13px;color:var(--text);background:var(--card);border:.5px solid var(--accent);border-radius:8px;padding:7px 10px;user-select:text}
+.box .row .sub{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+details.brief{margin:0 0 6px}details.brief summary{margin-top:0}
+@media (prefers-reduced-motion:reduce){.wheel.snap .tcard{transition:none}}
 .tbtns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
 .tb-done{border-color:var(--ok)}.tb-cancelled{border-color:var(--bad)}.tb-todo{border-color:var(--accent)}
 .btn[disabled]{opacity:.45;cursor:default}
 kbd{font:10.5px ui-monospace,SFMono-Regular,Menlo,monospace;border:.5px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);margin-left:4px}
-#tnote{width:100%;margin-top:10px;min-height:52px;font:inherit;font-size:13px;color:var(--text);background:var(--bg);border:.5px solid var(--line);border-radius:7px;padding:6px 8px;resize:vertical;user-select:text}
 @media (prefers-reduced-motion:reduce){.prog>div{transition:none}}
 .cbtn{border:.5px solid var(--line);background:transparent;color:var(--sub);font:inherit;font-size:10.5px;padding:0 6px;border-radius:5px;cursor:pointer;opacity:0;margin-left:6px;flex:none}
 .row{position:relative}.row>.cbtn{position:absolute;right:0;top:50%;transform:translateY(-50%);background:var(--bg);padding:2px 8px;margin:0}
@@ -158,8 +167,8 @@ function openComment(id,anchor){const b=payload.board,t=(b.tasks||[]).find(x=>x.
   p.innerHTML=`<div class="ht"><span class="dot" style="background:${color(b,t.area)};margin-right:6px"></span>${esc(t.title)}</div>
     ${cs.map(c=>`<div class="cmt"><div>${esc(c.e.note)}</div><div class="sub">${esc(fmtTime(c.e.recorded_at))} · ${c.rc?`reviewed ${esc(fmtTime(c.rc.processed_at))}${c.rc.reply||c.rc.reason?' — '+esc(c.rc.reply||c.rc.reason):''}`:`for review at ${esc(nextRun())}`}</div></div>`).join('')}
     <textarea id="ctext" placeholder="For example: already paid on Oct 25, or: waiting for my advisor's reply first"></textarea>
-    <div class="sub" style="margin:4px 0 8px">The curator reads this at its next run (${esc(nextRun())}). It doesn't change the status or edit your notes.</div>
-    <div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn" id="ccancel">Cancel <kbd>Esc</kbd></button><button class="btn tb-todo" id="csave">Save comment <kbd>⌘↵</kbd></button></div>
+    <div class="sub" style="margin:4px 0 8px">Shift+Enter for a new line. The curator reads this at its next run (${esc(nextRun())}). It doesn't change the status or edit your notes.</div>
+    <div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn" id="ccancel">Cancel <kbd>Esc</kbd></button><button class="btn tb-todo" id="csave">Save comment <kbd>↵</kbd></button></div>
     <div class="err" id="cerr" hidden></div>`;
   p.hidden=false;
   const r=anchor?anchor.getBoundingClientRect():{left:innerWidth/2-170,bottom:120,top:120};const w=Math.min(360,innerWidth-16);p.style.width=w+'px';
@@ -171,7 +180,7 @@ function openComment(id,anchor){const b=payload.board,t=(b.tasks||[]).find(x=>x.
     if(!APP){er.textContent='Comments need the BoardBar app.';er.hidden=false;return}
     window._pendingComment=true;post({feedback:{task_id:t.id,action:'comment',note,previous_state:t.state,snapshot_generated_at:b.generated_at}})};
   ta.oninput=()=>{document.getElementById('cerr').hidden=true};
-  ta.onkeydown=ev=>{if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();closeComment()}else if(ev.key==='Enter'&&(ev.metaKey||ev.ctrlKey)){ev.preventDefault();save()}};
+  ta.onkeydown=ev=>{if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();closeComment()}else if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault();save()}};
   document.getElementById('csave').onclick=save;document.getElementById('ccancel').onclick=closeComment}
 
 function dueChip(t){
@@ -346,10 +355,10 @@ function vFull(b){
   const now=new Date();
   const nq=triagePool(b,'unknown').length;
   const btns=`<div class="btns"><button class="btn" data-act="triage" title="Review items one by one">Triage${nq?' '+nq:''} <kbd>T</kbd></button>${APP?'<button class="btn" data-act="fullscreen">Full screen</button><button class="btn" data-act="reload">Reload</button>':'<button class="btn" data-act="collapse">Compact view</button>'}</div>`;
-  return `<div class="fhead"><div style="min-width:0;flex:1"><div style="font-size:20px;font-weight:600">${now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})} <span class="sub" style="font-size:12px;font-weight:400">${openCount(b)} · updated ${fmtTime(b.generated_at)}</span></div>${b.brief?`<div class="brief">${esc(b.brief)}</div>`:''}${questionHTML(b)}</div>${btns}</div>
+  return `<div class="fhead"><div style="min-width:0;flex:1"><div style="font-size:20px;font-weight:600">${now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})} <span class="sub" style="font-size:12px;font-weight:400">${openCount(b)} · updated ${fmtTime(b.generated_at)}</span></div>${questionHTML(b)}</div>${btns}</div>
   <div class="full"><section>${decisionsHTML(b)}${vToday(b,{noBrief:true,noRest:true,noDecisions:true})}${changesHTML(b,payload.previous)}</section>
     <section><h2><span>Timeline · 10 weeks</span></h2>${timelineHTML(b,{back:2,weeks:10,milestones:true})}${LEGEND}${tableHTML(b)}</section>
-    <section><h2><span>Projects · days since last evidenced work</span></h2>${heartbeatHTML(b,true)}${readingHTML(b)}${coverageHTML(b)}</section></div>`}
+    <section>${b.brief?`<details class="brief"><summary>Morning summary</summary><div style="margin-top:6px;font-size:12.5px;color:var(--sub)">${esc(b.brief)}</div></details>`:''}<h2><span>Projects · days since last evidenced work</span></h2>${heartbeatHTML(b,true)}${readingHTML(b)}${coverageHTML(b)}</section></div>`}
 
 function shiftFixture(p){const b=p&&p.board;if(!b||!b.fixture||b._shifted)return p;
   const off=Math.round((today()-day(b.generated_at))/864e5);if(!off)return p;
@@ -361,76 +370,105 @@ function shiftFixture(p){const b=p&&p.board;if(!b||!b.fixture||b._shifted)return
 let TR=null,TRseen=0,TRlocal=[];
 const TACT={todo:['Still on','Space'],cancelled:['Cancel task','⌫'],done:['Done','↵'],waiting:['Waiting','W'],doing:['In progress','I']};
 const statusAge=t=>t.status_as_of?-diff(t.status_as_of):(t.open_since?-diff(t.open_since):999);
-function hasPending(id){if(TRlocal.some(e=>e.task_id===id))return true;const f=feedbackFor(id);return !!(f&&!f.rc)}
+function hasPending(id){if(TRlocal.some(e=>e.task_id===id&&e.action!=='comment'))return true;const f=feedbackFor(id);return !!(f&&!f.rc)}
 function triagePool(b,mode){const t=(b.tasks||[]).filter(x=>OPEN(x)&&!SUGG(x)&&!hasPending(x.id));
   const q=mode==='unknown'?t.filter(x=>x.state==='unknown'):mode==='stale'?t.filter(x=>statusAge(x)>14):t;
   return q.sort((a,c)=>statusAge(c)-statusAge(a)).map(x=>x.id)}
 function startTriage(mode){const b=payload&&payload.board;if(!b)return;
   if(!mode)mode=['unknown','stale','all'].find(m=>triagePool(b,m).length)||'unknown';
-  TR={mode,queue:triagePool(b,mode),i:0,log:[],note:'',dx:0};render()}
+  TR={mode,queue:triagePool(b,mode),pos:0,answers:{},notes:{},log:[],noteOpen:false};render()}
 function endTriage(){flushFeedback();TR=null;render()}
 function commitEvent(e){clearTimeout(e.timer);if(e.sent)return;e.sent=true;TRlocal=TRlocal.filter(x=>x!==e);
-  if(APP)post({feedback:{task_id:e.task_id,action:e.action,previous_state:e.previous_state,snapshot_generated_at:e.snapshot_generated_at,note:e.note}})}
+  if(APP)post({feedback:{task_id:e.task_id,action:e.action,previous_state:e.previous_state,snapshot_generated_at:e.snapshot_generated_at,note:e.note}});if(TR)updateBadges()}
 window.flushFeedback=()=>{TRlocal.slice().forEach(commitEvent)};
 document.addEventListener('visibilitychange',()=>{if(document.hidden)flushFeedback()});
-function decide(action){if(!TR||TR.i>=TR.queue.length)return;
-  const b=payload.board,t=(b.tasks||[]).find(x=>x.id===TR.queue[TR.i]);if(!t)return;
-  const e={task_id:t.id,action,previous_state:t.state,snapshot_generated_at:b.generated_at,note:TR.note.trim(),title:t.title,sent:false};
-  e.timer=setTimeout(()=>commitEvent(e),5000);TRlocal.push(e);TR.log.push({kind:'decide',e,i:TR.i});
-  advance(action==='cancelled'?-1:1)}
-function skip(){if(!TR||TR.i>=TR.queue.length)return;TR.log.push({kind:'skip',i:TR.i});advance(1)}
-function advance(dir){const c=document.getElementById('tcard');TR.note='';TR.dx=0;
-  const go=()=>{TR.i++;render()};
-  if(c&&!matchMedia('(prefers-reduced-motion: reduce)').matches){c.style.transition='transform .2s ease, opacity .2s';c.style.transform=`translateX(${dir*520}px) rotate(${dir*14}deg)`;c.style.opacity='0';setTimeout(go,190)}else go()}
-function undo(){if(!TR||!TR.log.length)return;const last=TR.log.pop();TR.i=last.i;TR.dx=0;
-  if(last.kind==='decide'){const e=last.e;
-    if(!e.sent){clearTimeout(e.timer);TRlocal=TRlocal.filter(x=>x!==e);TR.note=e.note;toast('Undone')}
-    else toast('Already sent. Choose again and the newer status wins.')}
-  render()}
+const circular=()=>TR.queue.length>=5;
+function curIdx(){const n=TR.queue.length;if(!n)return -1;const r=Math.round(TR.pos);return circular()?((r%n)+n)%n:Math.max(0,Math.min(n-1,r))}
+function curTask(){const i=curIdx();return i<0?null:(payload.board.tasks||[]).find(x=>x.id===TR.queue[i])}
+function decide(action){const t=curTask();if(!t)return;const b=payload.board;
+  const prev=TR.answers[t.id];if(prev&&!prev.e.sent){clearTimeout(prev.e.timer);TRlocal=TRlocal.filter(x=>x!==prev.e)}
+  const e={task_id:t.id,action,previous_state:t.state,snapshot_generated_at:b.generated_at,note:(TR.notes[t.id]||'').trim(),sent:false};
+  e.timer=setTimeout(()=>commitEvent(e),5000);TRlocal.push(e);
+  TR.log.push({id:t.id,prev:prev&&!prev.e.sent?null:prev});TR.answers[t.id]={action,e};delete TR.notes[t.id];closeNote();
+  updateBadges();nextUnanswered()}
+function nextUnanswered(){const n=TR.queue.length,c=curIdx();
+  for(let k=1;k<=n;k++){const i=circular()?(c+k)%n:c+k;if(i>=n)break;if(!TR.answers[TR.queue[i]])return goTo(Math.round(TR.pos)+k)}
+  if(c<n-1||circular())goTo(Math.round(TR.pos)+1);else updateBadges()}
+function goTo(p,instant){if(!circular())p=Math.max(0,Math.min(TR.queue.length-1,p));TR.pos=p;positionWheel(!instant);updateBadges()}
+function undo(){const last=TR.log.pop();if(!last)return;const a=TR.answers[last.id];
+  if(a&&!a.e.sent){clearTimeout(a.e.timer);TRlocal=TRlocal.filter(x=>x!==a.e);if(a.e.note)TR.notes[last.id]=a.e.note;toast('Undone')}else if(a)toast('Already sent. Choose again and the newer status wins.');
+  if(last.prev)TR.answers[last.id]=last.prev;else delete TR.answers[last.id];
+  const i=TR.queue.indexOf(last.id),n=TR.queue.length,c=curIdx();let d=i-c;if(circular()){d=((d%n)+n)%n;if(d>n/2)d-=n}
+  goTo(Math.round(TR.pos)+d)}
+function wheelOffset(i){const n=TR.queue.length;let d=i-TR.pos;if(circular()){d=((d%n)+n)%n;if(d>n/2)d-=n}return d}
+function positionWheel(animate){const w=document.getElementById('wheel');if(!w)return;w.classList.toggle('snap',!!animate);
+  const cards=[...w.querySelectorAll('.tcard')];const ci=curIdx();
+  cards.forEach(c=>c.classList.toggle('cur',+c.dataset.i===ci));
+  const cur=cards.find(c=>+c.dataset.i===ci),mini=cards.find(c=>+c.dataset.i!==ci);
+  const curH=cur?cur.offsetHeight:260,miniH=mini?mini.offsetHeight:80,H=w.clientHeight;
+  w.style.height=Math.max(H,curH+miniH*2.6)+'px';
+  const near=curH/2+12+miniH/2,far=miniH*0.62;
+  cards.forEach(c=>{const d=wheelOffset(+c.dataset.i),a=Math.abs(d);
+    if(a>3.6){c.style.visibility='hidden';c.style.opacity='0';return}
+    const y=Math.sign(d)*(a<=1?a*near:near+(a-1)*far);
+    c.style.visibility='visible';c.style.zIndex=String(100-Math.round(a*10));
+    c.style.transform=`translate(-50%,-50%) translateY(${y}px) rotateX(${-Math.sign(d)*Math.min(a,3)*12}deg) scale(${1-Math.min(a,3)*0.06})`;
+    const op=[1,.6,.3,.12];const lo=Math.floor(Math.min(a,3)),hi=Math.min(3,lo+1),f=Math.min(a,3)-lo;
+    c.style.opacity=String(op[lo]+(op[hi]-op[lo])*f);c.style.pointerEvents=a<2.5?'auto':'none'});
+  const pc=document.getElementById('tpos');if(pc&&ci>=0)pc.textContent=`${ci+1} of ${TR.queue.length}`}
+function badgeHTML(id){const a=TR.answers[id];let s='';
+  if(a)s+=`<span class="pill ${a.action==='cancelled'?'bad':a.action==='done'?'okp':''}">${TACT[a.action][0]} · ${a.e.sent?'pending curator':'sending…'}</span>`;
+  if(TR.notes[id])s+=`<span class="pill" title="${esc(TR.notes[id])}">note: ${esc(TR.notes[id].length>28?TR.notes[id].slice(0,28)+'…':TR.notes[id])}</span>`;
+  return s}
+function updateBadges(){if(!TR)return;document.querySelectorAll('.tcard').forEach(c=>{const id=TR.queue[+c.dataset.i];const bd=c.querySelector('.tbadge');if(bd)bd.innerHTML=badgeHTML(id)});
+  const n=TR.queue.length,done=Object.keys(TR.answers).length,pg=document.querySelector('.prog>div');if(pg)pg.style.width=(n?done/n*100:100)+'%';
+  const sm=document.getElementById('tsum');if(sm){const tally={};Object.values(TR.answers).forEach(a=>tally[a.action]=(tally[a.action]||0)+1);
+    sm.innerHTML=done?`${done} answered${done===n&&n?' — all done':''}: ${Object.entries(tally).map(([a,c])=>`${TACT[a][0]} ${c}`).join(' · ')}`:'Answer with the keys below; scroll or use ↑ ↓ to move.'}
+  const u=document.querySelector('[data-act="tundo"]');if(u)u.disabled=!TR.log.length}
+function cardHTML(b,t,i){const proj=(b.projects||[]).find(p=>p.id===t.project_id);const age=statusAge(t);
+  const facts=[t.due?`Due ${fmt(t.due)} (${rel(t.due)})`:'',t.event_at?`Event ${fmt(t.event_at)} (${rel(t.event_at)})`:'',`Status: ${t.state==='unknown'?'unknown':t.state}${age<999?` · last confirmed ${age===0?'today':age+' days ago'}`:''}`,t.waiting_on?`Waiting on ${t.waiting_on}${t.since?' since '+fmt(t.since):''}`:'',t.open_since?`Captured ${fmt(t.open_since)}`:'',proj?`Project: ${proj.name}`:''].filter(Boolean);
+  return `<div class="tcard" data-i="${i}"><div class="tbadge"></div>
+    <div class="sub"><span class="dot" style="background:${color(b,t.area)};margin-right:6px"></span>${esc(areaLabel(b,t.area))}${t.priority==='high'?' · high priority':''}${t.basis==='inference'?' · inferred':''}</div>
+    <div class="ttl">${esc(t.title)}</div><div class="det">
+    ${t.why?`<div class="twhy">${esc(t.why)}</div>`:''}
+    ${facts.map(f=>`<div class="hl sub" style="font-size:12.5px">${esc(f)}</div>`).join('')}
+    ${(t.sources||[]).length?`<div class="sub" style="margin-top:6px">${(t.sources||[]).map(s=>esc(s.ref+(s.date?' · '+fmt(s.date):''))).join('<br>')}</div>`:''}
+    ${commentsFor(t.id).map(c=>`<div class="cmt"><div>${esc(c.e.note)}</div><div class="sub">your comment · ${c.rc?'reviewed':'for review at '+esc(nextRun())}</div></div>`).join('')}
+    ${t.note_path&&APP?`<div style="margin-top:10px"><a class="ext" data-note="${esc(t.note_path)}">Open note <kbd>O</kbd></a></div>`:''}</div></div>`}
 function vTriage(b){
   const counts={unknown:triagePool(b,'unknown').length,stale:triagePool(b,'stale').length,all:triagePool(b,'all').length};
   const modes=[['unknown','Status ?'],['stale','Status older than 2 weeks'],['all','All open']].map(([v,l])=>`<button class="chip ${TR.mode===v?'on':''}" data-tmode="${v}">${l} ${v===TR.mode?TR.queue.length:counts[v]}</button>`).join('');
-  const n=TR.queue.length,i=Math.min(TR.i,n);
-  let h=`<div class="tri"><div class="fhead"><div style="flex:1;min-width:0"><div style="font-size:20px;font-weight:600">Triage</div><div class="sub">Tell the curator what's really going on. Each answer is sent after 5 seconds; ⌘Z undoes it before then.</div></div><div class="btns"><button class="btn" data-act="endtriage">Finish <kbd>Esc</kbd></button></div></div>
-    <div class="chips" style="margin-top:10px">${modes}</div>
-    <div class="prog"><div style="width:${n?i/n*100:100}%"></div></div>`;
-  if(i<n){const t=(b.tasks||[]).find(x=>x.id===TR.queue[i]);
-    const proj=(b.projects||[]).find(p=>p.id===t.project_id);const age=statusAge(t);
-    const facts=[t.due?`Due ${fmt(t.due)} (${rel(t.due)})`:'',t.event_at?`Event ${fmt(t.event_at)} (${rel(t.event_at)})`:'',`Status: ${t.state==='unknown'?'unknown':t.state}${age<999?` · last confirmed ${age===0?'today':age+' days ago'}`:''}`,t.waiting_on?`Waiting on ${t.waiting_on}${t.since?' since '+fmt(t.since):''}`:'',t.open_since?`Captured ${fmt(t.open_since)}`:'',proj?`Project: ${proj.name}`:''].filter(Boolean);
-    h+=`<div class="sub" style="text-align:center;margin-bottom:8px">${i+1} of ${n}</div>
-    <div class="tcard" id="tcard"><span class="stamp keep" id="skeep">STILL ON</span><span class="stamp drop" id="sdrop">CANCEL</span>
-      <div class="sub"><span class="dot" style="background:${color(b,t.area)};margin-right:6px"></span>${esc(areaLabel(b,t.area))}${t.priority==='high'?' · high priority':''}${t.basis==='inference'?' · inferred':''}</div>
-      <div class="ttl">${esc(t.title)}</div>
-      ${t.why?`<div style="font-size:14px;margin-bottom:10px">${esc(t.why)}</div>`:''}
-      ${facts.map(f=>`<div class="hl sub" style="font-size:12.5px">${esc(f)}</div>`).join('')}
-      ${(t.sources||[]).length?`<div class="sub" style="margin-top:8px">${(t.sources||[]).map(s=>esc(s.ref+(s.date?' · '+fmt(s.date):''))).join('<br>')}</div>`:''}
-      ${commentsFor(t.id).map(c=>`<div class="cmt"><div>${esc(c.e.note)}</div><div class="sub">your comment · ${c.rc?'reviewed':'for review at '+esc(nextRun())}</div></div>`).join('')}
-      <div style="margin-top:12px;display:flex;gap:12px;align-items:center">${t.note_path&&APP?`<a class="ext" data-note="${esc(t.note_path)}">Open note <kbd>O</kbd></a>`:''}<a class="ext" data-act="tnote">${TR.note||TR.noteOpen?'Note':'Add a note'} <kbd>N</kbd></a></div>
-      <textarea id="tnote" placeholder="Optional note for the curator, e.g. paid on Oct 25" ${TR.noteOpen||TR.note?'':'hidden'}>${esc(TR.note)}</textarea>
-    </div>
+  const n=TR.queue.length;
+  let h=`<div class="tri"><div class="fhead"><div style="flex:1;min-width:0"><div style="font-size:20px;font-weight:600">Triage <span class="sub" id="tpos" style="font-size:13px;font-weight:400"></span></div><div class="sub" id="tsum"></div></div><div class="btns"><button class="btn" data-act="endtriage">Finish <kbd>Esc</kbd></button></div></div>
+    <div class="chips" style="margin-top:8px">${modes}</div><div class="prog"><div></div></div>`;
+  if(!n)return h+`<div class="empty" style="text-align:center;padding:60px 0">Nothing to review in this list.</div></div>`;
+  h+=`<div class="wheel" id="wheel">${TR.queue.map((id,i)=>cardHTML(b,(b.tasks||[]).find(x=>x.id===id),i)).join('')}</div>
+    <div class="tnotebar" id="tnotebar" ${TR.noteOpen?'':'hidden'}><input id="tnote" placeholder="Note to send with your answer, e.g. paid on Oct 25 — Enter to keep, Esc to discard"></div>
     <div class="tbtns">${['cancelled','waiting','doing','done','todo'].map(a=>`<button class="btn tb tb-${a}" data-decide="${a}">${TACT[a][0]} <kbd>${TACT[a][1]}</kbd></button>`).join('')}</div>
-    <div class="tbtns" style="margin-top:6px"><button class="btn" data-act="tcomment">Comment <kbd>C</kbd></button><button class="btn" data-act="tskip">Skip <kbd>→</kbd></button><button class="btn" data-act="tundo" ${TR.log.length?'':'disabled'}>Undo <kbd>⌘Z</kbd></button></div>
-    <div class="sub" style="text-align:center;margin-top:10px">Swipe or drag right for still on, left to cancel</div>`}
-  else{const tally={};TR.log.filter(l=>l.kind==='decide').forEach(l=>tally[l.e.action]=(tally[l.e.action]||0)+1);const sk=TR.log.filter(l=>l.kind==='skip').length;
-    h+=`<div class="tcard" style="text-align:center;cursor:default"><div class="ttl">${n?'All caught up':'Nothing to review here'}</div>
-      <div style="font-size:14px">${Object.entries(tally).map(([a,c])=>`${TACT[a][0]}: ${c}`).join(' · ')||'No answers given'}${sk?` · Skipped: ${sk}`:''}</div>
-      <div class="sub" style="margin-top:8px">Your answers go to the curator and appear on the board after its next run.</div>
-      <div class="tbtns">${TR.log.length?'<button class="btn" data-act="tundo">Undo last <kbd>⌘Z</kbd></button>':''}<button class="btn" data-act="endtriage">Back to the board <kbd>Esc</kbd></button></div></div>`}
+    <div class="tbtns" style="margin-top:6px"><button class="btn" data-act="tprev">Previous <kbd>↑</kbd></button><button class="btn" data-act="tnext">Next <kbd>↓</kbd></button><button class="btn" data-act="tnote">Note <kbd>N</kbd></button><button class="btn" data-act="tcomment">Comment <kbd>C</kbd></button><button class="btn" data-act="tundo">Undo <kbd>⌘Z</kbd></button></div>`;
   return h+'</div>'}
-function bindTriage(){const c=document.getElementById('tcard');
+function openNote(){const t=curTask();if(!t)return;TR.noteOpen=true;const bar=document.getElementById('tnotebar'),inp=document.getElementById('tnote');if(!bar)return;
+  bar.hidden=false;inp.value=TR.notes[t.id]||'';inp.dataset.task=t.id;inp.focus()}
+function closeNote(keep){const bar=document.getElementById('tnotebar'),inp=document.getElementById('tnote');if(!bar||bar.hidden){if(TR)TR.noteOpen=false;return}
+  const id=inp.dataset.task;if(keep&&id){const v=inp.value.trim();if(v)TR.notes[id]=v;else delete TR.notes[id]}
+  bar.hidden=true;TR.noteOpen=false;inp.blur();updateBadges()}
+function triageComment(){const t=curTask();if(!t)return;const note=TR.notes[t.id];
+  if(note){if(!APP)return toast('Comments need the BoardBar app.',true);delete TR.notes[t.id];window._pendingComment=true;
+    post({feedback:{task_id:t.id,action:'comment',note,previous_state:t.state,snapshot_generated_at:payload.board.generated_at}});updateBadges();return}
+  openComment(t.id,document.querySelector('.tcard.cur'))}
+function bindTriage(){
   document.querySelectorAll('[data-decide]').forEach(e=>e.onclick=()=>decide(e.dataset.decide));
   document.querySelectorAll('[data-tmode]').forEach(e=>e.onclick=()=>{flushFeedback();startTriage(e.dataset.tmode)});
-  const ta=document.getElementById('tnote');if(ta){ta.oninput=()=>TR.note=ta.value;ta.onkeydown=ev=>{if(ev.key==='Escape'){ev.stopPropagation();ta.blur()}};if(TR.noteOpen&&!ta.hidden){ta.focus();TR.noteOpen=false}}
-  if(!c||!document.getElementById('skeep'))return;
-  const setDx=dx=>{TR.dx=dx;c.style.transform=`translateX(${dx}px) rotate(${dx/25}deg)`;
-    document.getElementById('skeep').style.opacity=Math.max(0,Math.min(1,dx/120));document.getElementById('sdrop').style.opacity=Math.max(0,Math.min(1,-dx/120))};
-  const release=()=>{if(TR.dx>130)decide('todo');else if(TR.dx<-130)decide('cancelled');else{c.style.transition='transform .2s';setDx(0);setTimeout(()=>{c.style.transition=''},200)}};
-  let drag=null;
-  c.onpointerdown=ev=>{if(ev.target.closest('a,textarea,button'))return;drag={x:ev.clientX};c.setPointerCapture(ev.pointerId);c.style.transition='none'};
-  c.onpointermove=ev=>{if(drag)setDx(ev.clientX-drag.x)};
-  c.onpointerup=c.onpointercancel=()=>{if(!drag)return;drag=null;release()};
-  let wt=null;
-  c.parentElement.onwheel=ev=>{if(Math.abs(ev.deltaX)<=Math.abs(ev.deltaY))return;ev.preventDefault();c.style.transition='none';setDx(TR.dx-ev.deltaX);clearTimeout(wt);wt=setTimeout(release,140)}}
+  const w=document.getElementById('wheel');if(!w){updateBadges();return}
+  positionWheel(false);updateBadges();
+  w.querySelectorAll('.tcard').forEach(c=>c.onclick=ev=>{if(ev.target.closest('a'))return;const d=wheelOffset(+c.dataset.i);if(Math.abs(d)>=0.5)goTo(Math.round(TR.pos+d))});
+  const inp=document.getElementById('tnote');
+  inp.onkeydown=ev=>{if(ev.key==='Enter'){ev.preventDefault();ev.stopPropagation();closeNote(true)}else if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();inp.value='';closeNote(false)}};
+  let st=null;
+  w.onwheel=ev=>{ev.preventDefault();if(TR.noteOpen)closeNote(true);const dlt=Math.abs(ev.deltaY)>=Math.abs(ev.deltaX)?ev.deltaY:ev.deltaX;
+    TR.pos+=dlt/(ev.deltaMode===1?3:110);if(!circular())TR.pos=Math.max(-0.4,Math.min(TR.queue.length-0.6,TR.pos));
+    positionWheel(false);clearTimeout(st);st=setTimeout(()=>goTo(Math.round(TR.pos)),130)};
+  addEventListener('resize',()=>{if(TR)positionWheel(false)})}
 document.addEventListener('keydown',ev=>{
   if(ev.key==='Escape'){const p=document.getElementById('cbox');if(p&&!p.hidden){ev.preventDefault();return closeComment()}}
   const inField=!!(ev.target&&ev.target.closest&&ev.target.closest('textarea,input,select'));
@@ -441,14 +479,16 @@ document.addEventListener('keydown',ev=>{
   if(ev.metaKey||ev.ctrlKey||ev.altKey)return;
   const map={' ':'todo','Backspace':'cancelled','Delete':'cancelled','Enter':'done','w':'waiting','W':'waiting','i':'doing','I':'doing'};
   if(map[k]){ev.preventDefault();return decide(map[k])}
-  if(k==='ArrowRight'||k==='s'||k==='S'){ev.preventDefault();return skip()}
+  if(k==='ArrowDown'||k==='ArrowRight'||k==='j'||k==='J'){ev.preventDefault();return goTo(Math.round(TR.pos)+1)}
+  if(k==='ArrowUp'||k==='ArrowLeft'||k==='k'||k==='K'){ev.preventDefault();return goTo(Math.round(TR.pos)-1)}
   if(k==='Escape'){ev.preventDefault();return endTriage()}
-  if(k==='o'||k==='O'){const t=payload.board.tasks.find(x=>x.id===TR.queue[TR.i]);if(t&&t.note_path&&APP)post({open:t.note_path});return}
-  if(k==='n'||k==='N'){ev.preventDefault();TR.noteOpen=true;render()}
-  if(k==='c'||k==='C'){ev.preventDefault();act('tcomment')}});
+  if(k==='o'||k==='O'){const t=curTask();if(t&&t.note_path&&APP)post({open:t.note_path});return}
+  if(k==='n'||k==='N'){ev.preventDefault();return openNote()}
+  if(k==='c'||k==='C'){ev.preventDefault();return triageComment()}});
 
 function render(p){
   if(p)p=shiftFixture(p);
+  if(p&&TR&&isFull()&&document.getElementById('wheel')){payload=p;updateBadges();return}
   payload=p||payload;HOV=[];hideHov();
   const b=payload&&payload.board,h=payload&&payload.health;
   const app=document.getElementById('app');const full=isFull();
@@ -482,8 +522,8 @@ window.feedbackResult=r=>{if(window._pendingComment){window._pendingComment=fals
 function expand(){if(APP&&window.BOARD_MODE!=='full')post({act:'expand'});else{localFull=true;render()}}
 function act(a){if(a==='expand')return expand();if(a==='collapse'){localFull=false;return render()}
   if(a==='triage'){if(isFull())return startTriage();if(APP)return post({act:'triage'});localFull=true;return startTriage()}
-  if(a==='endtriage')return endTriage();if(a==='tskip')return skip();if(a==='tundo')return undo();if(a==='tnote'){TR.noteOpen=true;return render()}
-  if(a==='tcomment'){const id=TR.queue[TR.i];if(id)openComment(id,document.getElementById('tcard'));return}
+  if(a==='endtriage')return endTriage();if(a==='tundo')return undo();if(a==='tnote')return openNote();if(a==='tcomment')return triageComment();
+  if(a==='tnext')return goTo(Math.round(TR.pos)+1);if(a==='tprev')return goTo(Math.round(TR.pos)-1);
   post({act:a})}
 function bind(){
   document.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>{tab=e.dataset.tab;try{localStorage.setItem('tab',tab)}catch(x){}render()});
