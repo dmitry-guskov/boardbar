@@ -87,14 +87,16 @@ select.fb{font:inherit;font-size:11px;color:var(--sub);background:var(--card);bo
 #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:6px 12px;border-radius:7px;font-size:12px;z-index:11}
 #toast.err{background:var(--bad-bg);color:var(--bad)}
 .child .n{padding-left:12px}
-.tri{max-width:660px;margin:0 auto}
+.tri{max-width:1280px;margin:0 auto}
+.tri>.fhead,.tri>.chips,.tri>.prog,.tri>.tbtns,.tri>.tnotebar{max-width:660px;margin-left:auto;margin-right:auto}
 .prog{height:3px;background:var(--card);border-radius:2px;margin:12px 0 14px}.prog>div{height:3px;background:var(--accent);border-radius:2px;transition:width .2s}
-.wheel{position:relative;height:min(520px,58vh);overflow:hidden;perspective:1300px;margin-top:4px}
-.wheel .tcard{position:absolute;left:50%;top:50%;width:min(640px,92%);max-height:420px;overflow:hidden;background:var(--card);border-radius:14px;padding:20px 24px;cursor:pointer;transform-origin:50% 50%;will-change:transform,opacity;box-shadow:0 1px 0 var(--line)}
+.wheel{position:relative;height:320px;overflow:hidden;perspective:1600px;margin-top:4px}
+.wheel .tcard{position:absolute;left:50%;top:50%;width:min(600px,52%);max-height:440px;overflow:hidden;background:var(--card);border-radius:14px;padding:20px 24px;cursor:pointer;transform-origin:50% 50%;will-change:transform,opacity;box-shadow:0 1px 0 var(--line)}
 .wheel.snap .tcard{transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .28s}
 .wheel .tcard.cur{cursor:default;outline:.5px solid var(--sub);max-height:none}
 .wheel .tcard:not(.cur) .det{display:none}
-.wheel .tcard:not(.cur){padding:12px 24px}.wheel .tcard:not(.cur) .ttl{font-size:16px;margin:2px 0 0}
+.wheel .tcard:not(.cur){padding:14px 18px;width:min(280px,24%)}.wheel .tcard:not(.cur) .ttl{font-size:15px;margin:4px 0 0}
+.wheel .tcard:not(.cur) .tbadge{position:static;margin-bottom:6px}
 .tcard .ttl{font-size:21px;font-weight:600;line-height:1.3;margin:6px 0 8px;text-wrap:balance}
 .twhy{font-size:13.5px;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .tcard.cur .twhy{-webkit-line-clamp:unset;display:block}
@@ -405,15 +407,15 @@ function positionWheel(animate){const w=document.getElementById('wheel');if(!w)r
   const cards=[...w.querySelectorAll('.tcard')];const ci=curIdx();
   cards.forEach(c=>c.classList.toggle('cur',+c.dataset.i===ci));
   const cur=cards.find(c=>+c.dataset.i===ci),mini=cards.find(c=>+c.dataset.i!==ci);
-  const curH=cur?cur.offsetHeight:260,miniH=mini?mini.offsetHeight:80,H=w.clientHeight;
-  w.style.height=Math.max(H,curH+miniH*2.6)+'px';
-  const near=curH/2+12+miniH/2,far=miniH*0.62;
+  const curW=cur?cur.offsetWidth:600,miniW=mini?mini.offsetWidth:280,curH=cur?cur.offsetHeight:260;
+  w.style.height=(curH+48)+'px';
+  const near=curW/2+20+miniW*0.46,far=miniW*0.82;
   cards.forEach(c=>{const d=wheelOffset(+c.dataset.i),a=Math.abs(d);
-    if(a>3.6){c.style.visibility='hidden';c.style.opacity='0';return}
-    const y=Math.sign(d)*(a<=1?a*near:near+(a-1)*far);
+    if(a>2.6){c.style.visibility='hidden';c.style.opacity='0';return}
+    const x=Math.sign(d)*(a<=1?a*near:near+(a-1)*far);
     c.style.visibility='visible';c.style.zIndex=String(100-Math.round(a*10));
-    c.style.transform=`translate(-50%,-50%) translateY(${y}px) rotateX(${-Math.sign(d)*Math.min(a,3)*12}deg) scale(${1-Math.min(a,3)*0.06})`;
-    const op=[1,.6,.3,.12];const lo=Math.floor(Math.min(a,3)),hi=Math.min(3,lo+1),f=Math.min(a,3)-lo;
+    c.style.transform=`translate(-50%,-50%) translateX(${x}px) rotateY(${-Math.sign(d)*Math.min(a,3)*16}deg) scale(${1-Math.min(a,3)*0.08})`;
+    const op=[1,.6,.25,0];const lo=Math.floor(Math.min(a,3)),hi=Math.min(3,lo+1),f=Math.min(a,3)-lo;
     c.style.opacity=String(op[lo]+(op[hi]-op[lo])*f);c.style.pointerEvents=a<2.5?'auto':'none'});
   const pc=document.getElementById('tpos');if(pc&&ci>=0)pc.textContent=`${ci+1} of ${TR.queue.length}`}
 function badgeHTML(id){const a=TR.answers[id];let s='';
@@ -423,7 +425,7 @@ function badgeHTML(id){const a=TR.answers[id];let s='';
 function updateBadges(){if(!TR)return;document.querySelectorAll('.tcard').forEach(c=>{const id=TR.queue[+c.dataset.i];const bd=c.querySelector('.tbadge');if(bd)bd.innerHTML=badgeHTML(id)});
   const n=TR.queue.length,done=Object.keys(TR.answers).length,pg=document.querySelector('.prog>div');if(pg)pg.style.width=(n?done/n*100:100)+'%';
   const sm=document.getElementById('tsum');if(sm){const tally={};Object.values(TR.answers).forEach(a=>tally[a.action]=(tally[a.action]||0)+1);
-    sm.innerHTML=done?`${done} answered${done===n&&n?' — all done':''}: ${Object.entries(tally).map(([a,c])=>`${TACT[a][0]} ${c}`).join(' · ')}`:'Answer with the keys below; scroll or use ↑ ↓ to move.'}
+    sm.innerHTML=done?`${done} answered${done===n&&n?' — all done':''}: ${Object.entries(tally).map(([a,c])=>`${TACT[a][0]} ${c}`).join(' · ')}`:'Answer with the keys below; swipe sideways or use ← → to move.'}
   const u=document.querySelector('[data-act="tundo"]');if(u)u.disabled=!TR.log.length}
 function cardHTML(b,t,i){const proj=(b.projects||[]).find(p=>p.id===t.project_id);const age=statusAge(t);
   const facts=[t.due?`Due ${fmt(t.due)} (${rel(t.due)})`:'',t.event_at?`Event ${fmt(t.event_at)} (${rel(t.event_at)})`:'',`Status: ${t.state==='unknown'?'unknown':t.state}${age<999?` · last confirmed ${age===0?'today':age+' days ago'}`:''}`,t.waiting_on?`Waiting on ${t.waiting_on}${t.since?' since '+fmt(t.since):''}`:'',t.open_since?`Captured ${fmt(t.open_since)}`:'',proj?`Project: ${proj.name}`:''].filter(Boolean);
@@ -445,7 +447,7 @@ function vTriage(b){
   h+=`<div class="wheel" id="wheel">${TR.queue.map((id,i)=>cardHTML(b,(b.tasks||[]).find(x=>x.id===id),i)).join('')}</div>
     <div class="tnotebar" id="tnotebar" ${TR.noteOpen?'':'hidden'}><input id="tnote" placeholder="Note to send with your answer, e.g. paid on Oct 25 — Enter to keep, Esc to discard"></div>
     <div class="tbtns">${['cancelled','waiting','doing','done','todo'].map(a=>`<button class="btn tb tb-${a}" data-decide="${a}">${TACT[a][0]} <kbd>${TACT[a][1]}</kbd></button>`).join('')}</div>
-    <div class="tbtns" style="margin-top:6px"><button class="btn" data-act="tprev">Previous <kbd>↑</kbd></button><button class="btn" data-act="tnext">Next <kbd>↓</kbd></button><button class="btn" data-act="tnote">Note <kbd>N</kbd></button><button class="btn" data-act="tcomment">Comment <kbd>C</kbd></button><button class="btn" data-act="tundo">Undo <kbd>⌘Z</kbd></button></div>`;
+    <div class="tbtns" style="margin-top:6px"><button class="btn" data-act="tprev">Previous <kbd>←</kbd></button><button class="btn" data-act="tnext">Next <kbd>→</kbd></button><button class="btn" data-act="tnote">Note <kbd>N</kbd></button><button class="btn" data-act="tcomment">Comment <kbd>C</kbd></button><button class="btn" data-act="tundo">Undo <kbd>⌘Z</kbd></button></div>`;
   return h+'</div>'}
 function openNote(){const t=curTask();if(!t)return;TR.noteOpen=true;const bar=document.getElementById('tnotebar'),inp=document.getElementById('tnote');if(!bar)return;
   bar.hidden=false;inp.value=TR.notes[t.id]||'';inp.dataset.task=t.id;inp.focus()}
@@ -465,7 +467,7 @@ function bindTriage(){
   const inp=document.getElementById('tnote');
   inp.onkeydown=ev=>{if(ev.key==='Enter'){ev.preventDefault();ev.stopPropagation();closeNote(true)}else if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();inp.value='';closeNote(false)}};
   let st=null;
-  w.onwheel=ev=>{ev.preventDefault();if(TR.noteOpen)closeNote(true);const dlt=Math.abs(ev.deltaY)>=Math.abs(ev.deltaX)?ev.deltaY:ev.deltaX;
+  w.onwheel=ev=>{ev.preventDefault();if(TR.noteOpen)closeNote(true);const dlt=Math.abs(ev.deltaX)>=Math.abs(ev.deltaY)?ev.deltaX:ev.deltaY;
     TR.pos+=dlt/(ev.deltaMode===1?3:110);if(!circular())TR.pos=Math.max(-0.4,Math.min(TR.queue.length-0.6,TR.pos));
     positionWheel(false);clearTimeout(st);st=setTimeout(()=>goTo(Math.round(TR.pos)),130)};
   addEventListener('resize',()=>{if(TR)positionWheel(false)})}

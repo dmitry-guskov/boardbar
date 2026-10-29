@@ -46,9 +46,9 @@ The **expanded view** adds:
 
 Suggestions (`basis: "recommendation"`) get their own group and aren't counted as open work.
 
-**Triage** (press **T** in the full board, or click **Triage** in the popover) arranges items on a scrollable wheel, starting with unconfirmed items, oldest first. The current card shows full details, and its neighbours fade out above and below. Scroll with the trackpad, use `↑` `↓`, or click a neighbour. Each answer moves you to the next unanswered card, and answered cards keep a badge, so you can scroll back and change your mind.
+**Triage** (press **T** in the full board, or click **Triage** in the popover) arranges items on a scrollable wheel, starting with unconfirmed items, oldest first. The current card shows full details, and its neighbours fade out to the left and right. Swipe sideways with two fingers, use `←` `→`, or click a neighbour. Each answer moves you to the next unanswered card, and answered cards keep a badge, so you can scroll back and change your mind.
 
-<img src="docs/triage.jpg" width="620" alt="Triage wheel: the current card in the centre with previous and next cards fading above and below, and answer buttons with keyboard hints">
+<img src="docs/triage.jpg" width="620" alt="Triage wheel: the current card in the centre with previous and next cards fading to the left and right, and answer buttons with keyboard hints">
 
 | Key | Sends |
 |---|---|
