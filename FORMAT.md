@@ -97,17 +97,19 @@ When feedback is on (the default; turn it off with `defaults write local.boardba
 {"action":"done","actor":"sam","event_id":"<uuid>","note":"","previous_state":"unknown","recorded_at":"2026-10-28T12:31:05-04:00","snapshot_generated_at":"2026-10-28T07:11:00-04:00","task_id":"tqc-reimbursement","via":"BoardBar"}
 ```
 
-`action` is one of `done` · `todo` · `doing` · `waiting` · `cancelled`. "Cancel task" means `cancelled`, not deleted.
+`action` is one of `done` · `todo` · `doing` · `waiting` · `cancelled` · `comment`. "Cancel task" means `cancelled`, not deleted.
+
+A **`comment`** event carries the user's text in `note` (required, at most 4000 characters) and changes no status. The curator reads every unreviewed comment at its next run and acknowledges it with a receipt. It may then act on what the comment says (for example, add a `waiting_on` or change a date) through its normal evidence rules, treating the comment as a dated statement from the user.
 
 Rules for the curator:
 - Replay the whole log on every run and overlay valid events on the inventory built from your sources. Use `event_id` to avoid applying an event twice.
 - The latest valid event for a task wins over older evidence and over your own inferences, for that task only. It proves nothing beyond that task's status.
 - If newer evidence contradicts an event, report a `conflict`; don't silently reopen the task.
 - Report malformed lines and unknown task IDs as `rejected`, and never create tasks from them.
-- Publish a receipt for each event, in the same atomic write as the task states. `reason` is required unless the status is `applied`:
+- Publish a receipt for each event, in the same atomic write as the task states. Use `acknowledged` for comments. `reason` is required for `conflict` and `rejected`. `reply` is an optional short answer, which the app shows under the user's comment:
 
 ```json
-"feedback_receipts": { "<event_id>": { "status": "applied" | "conflict" | "rejected", "processed_at": "<ISO date-time>", "reason": "…" } }
+"feedback_receipts": { "<event_id>": { "status": "applied" | "acknowledged" | "conflict" | "rejected", "processed_at": "<ISO date-time>", "reason": "…", "reply": "…" } }
 ```
 
-The app shows "pending" until a receipt appears, then "conflict" or "not applied" with the reason. A receipt only covers the board; it doesn't mean any note was updated.
+For status updates, the app shows "pending" until a receipt appears, then "conflict" or "not applied" with the reason. For comments, it shows "for review" with the next run time, then "reviewed" plus your reply. A receipt only covers the board; it doesn't mean any note was updated.

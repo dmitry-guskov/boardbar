@@ -19,7 +19,7 @@ final class Store: ObservableObject {
     @Published var topCount = 0
     @Published private var feedbackRaw = "[]"
     @Published var triageRequest = 0
-    static let feedbackActions: Set<String> = ["done", "todo", "doing", "waiting", "cancelled"]
+    static let feedbackActions: Set<String> = ["done", "todo", "doing", "waiting", "cancelled", "comment"]
     var feedbackEnabled: Bool { UserDefaults.standard.object(forKey: "feedbackEnabled") as? Bool ?? true }
     var feedbackPath: String {
         UserDefaults.standard.string(forKey: "feedbackPath")
@@ -129,6 +129,8 @@ final class Store: ObservableObject {
         guard feedbackEnabled else { return "Feedback is turned off" }
         guard let task = input["task_id"] as? String, !task.isEmpty,
               let action = input["action"] as? String, Store.feedbackActions.contains(action) else { return "Invalid status update" }
+        let note = String((input["note"] as? String ?? "").prefix(4000))
+        if action == "comment" && note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "A comment needs some text" }
         let stamp = ISO8601DateFormatter(); stamp.timeZone = .current; stamp.formatOptions = [.withInternetDateTime]
         let event: [String: Any] = [
             "event_id": UUID().uuidString.lowercased(),
@@ -137,7 +139,7 @@ final class Store: ObservableObject {
             "task_id": task, "action": action,
             "snapshot_generated_at": input["snapshot_generated_at"] as? String ?? "",
             "previous_state": input["previous_state"] as? String ?? "",
-            "note": input["note"] as? String ?? "",
+            "note": note,
         ]
         guard var line = try? JSONSerialization.data(withJSONObject: event, options: [.sortedKeys]) else { return "Could not encode the update" }
         line.append(0x0A)

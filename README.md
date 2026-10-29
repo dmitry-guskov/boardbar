@@ -42,6 +42,8 @@ The **expanded view** adds:
 - hover cards on the timeline with each item's full title, date, status and sources
 - a **Set status…** menu on every item. It adds a line to `board-feedback.jsonl` for the curator to apply at its next run (see [FORMAT.md](FORMAT.md#feedback-log-and-receipts-11)). Each update shows as pending until the curator publishes a receipt.
 
+**Comments:** hover any task (in the popover, the full board, or triage) and click **Comment** to leave a note for the curator. It's marked *for review* with the time of the next run until the curator acknowledges it, and its reply appears under your comment.
+
 Suggestions (`basis: "recommendation"`) get their own group and aren't counted as open work.
 
 **Triage** (press **T** in the full board, or click **Triage** in the popover) shows one card at a time, starting with unconfirmed items, oldest first:
@@ -56,6 +58,7 @@ Suggestions (`basis: "recommendation"`) get their own group and aren't counted a
 | | `W` / `I` | `waiting` / `doing` |
 | | `→` | skip, nothing sent |
 | | `⌘Z` | undo |
+| | `C` | comment without changing the status |
 | | `N` / `O` / `Esc` | add a note / open the note / finish |
 
 Each answer is held for 5 seconds before it's written to the feedback log, so `⌘Z` removes it cleanly. After that, undo brings the card back and the newer answer wins. Queued answers are written when you finish or close the window.

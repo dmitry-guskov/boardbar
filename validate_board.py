@@ -23,7 +23,7 @@ CONFIDENCE = {"high", "medium", "low"}
 EFFORTS = {"15m", "1h", "half-day", "multi-day"}
 EFFORT_BASES = {"user", "source", "estimate"}
 REVISIONS = {"1.0", "1.1"}
-RECEIPT_STATES = {"applied", "conflict", "rejected"}
+RECEIPT_STATES = {"applied", "acknowledged", "conflict", "rejected"}
 DATE_FIELDS = ("due", "event_at", "since", "open_since", "status_as_of")
 MAX_DECISIONS, MAX_READING = 5, 3
 # Comma-separated note-path prefixes that must never appear on the board, e.g. "Private/,Journal/"
@@ -252,8 +252,10 @@ def validate(board, allow_fixture=False):
         c.enum(where, rc, "status", RECEIPT_STATES, required=True)
         if not is_date(rc.get("processed_at")):
             err(f"{where}: processed_at is required")
-        if rc.get("status") != "applied" and not is_text(rc.get("reason")):
+        if rc.get("status") in ("conflict", "rejected") and not is_text(rc.get("reason")):
             err(f"{where}: reason is required for conflict or rejected")
+        if "reply" in rc and not isinstance(rc["reply"], str):
+            err(f"{where}: reply must be text")
 
     return c.errors
 

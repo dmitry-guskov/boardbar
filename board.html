@@ -58,7 +58,7 @@ body.isfull{max-width:none;padding:18px 28px 14px}
 .btns{display:flex;gap:6px;flex:none}
 .btn{border:.5px solid var(--line);background:var(--card);color:var(--text);font:inherit;font-size:12px;padding:3px 10px;border-radius:6px;cursor:pointer}
 .btn:hover{border-color:var(--sub)}
-.iconbtn{border:0;background:transparent;color:var(--sub);cursor:pointer;font:inherit;font-size:12px;padding:0 2px}
+.iconbtn{white-space:nowrap;flex:none;border:0;background:transparent;color:var(--sub);cursor:pointer;font:inherit;font-size:12px;padding:0 2px}
 .iconbtn:hover{color:var(--accent)}
 .chips{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0;align-items:center}
 .chip{border:.5px solid var(--line);background:transparent;color:var(--sub);font:inherit;font-size:11.5px;padding:2px 9px;border-radius:12px;cursor:pointer}
@@ -100,6 +100,16 @@ select.fb{font:inherit;font-size:11px;color:var(--sub);background:var(--card);bo
 kbd{font:10.5px ui-monospace,SFMono-Regular,Menlo,monospace;border:.5px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted);margin-left:4px}
 #tnote{width:100%;margin-top:10px;min-height:52px;font:inherit;font-size:13px;color:var(--text);background:var(--bg);border:.5px solid var(--line);border-radius:7px;padding:6px 8px;resize:vertical;user-select:text}
 @media (prefers-reduced-motion:reduce){.prog>div{transition:none}}
+.cbtn{border:.5px solid var(--line);background:transparent;color:var(--sub);font:inherit;font-size:10.5px;padding:0 6px;border-radius:5px;cursor:pointer;opacity:0;margin-left:6px;flex:none}
+.row{position:relative}.row>.cbtn{position:absolute;right:0;top:50%;transform:translateY(-50%);background:var(--bg);padding:2px 8px;margin:0}
+.box .row>.cbtn{background:var(--card)}
+.row:hover .cbtn,.tr2:hover .cbtn,.cbtn:focus{opacity:1}
+.cbtn:hover{color:var(--accent);border-color:var(--accent)}
+#cbox{position:fixed;z-index:12;background:var(--bg);border:.5px solid var(--sub);border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.28);font-size:12.5px}
+#cbox .ht{font-weight:600;margin-bottom:6px}
+#cbox textarea{width:100%;min-height:70px;margin-top:6px;font:inherit;font-size:13px;color:var(--text);background:var(--card);border:.5px solid var(--line);border-radius:7px;padding:6px 8px;resize:vertical;user-select:text}
+#cbox .err{color:var(--bad);font-size:12px;margin-top:6px}
+.cmt{border-left:2px solid var(--accent);padding:2px 0 2px 8px;margin:6px 0;font-size:12.5px;border-radius:0}
 </style>
 </head>
 <body>
@@ -126,7 +136,7 @@ function color(b,a){const k=Object.keys((b&&b.areas)||{});const i=k.indexOf(a);r
 function areaLabel(b,a){return (b.areas&&b.areas[a]&&b.areas[a].label)||a||'Other'}
 
 function feedbackFor(id){
-  const evs=((payload&&payload.feedback)||[]).filter(e=>e.task_id===id).sort((x,y)=>String(x.recorded_at).localeCompare(String(y.recorded_at)));
+  const evs=((payload&&payload.feedback)||[]).filter(e=>e.task_id===id&&e.action!=='comment').sort((x,y)=>String(x.recorded_at).localeCompare(String(y.recorded_at)));
   if(!evs.length)return null;const ev=evs[evs.length-1];
   const rc=((payload.board&&payload.board.feedback_receipts)||{})[ev.event_id];return {ev,rc}}
 function fbTag(t){const f=feedbackFor(t.id);if(!f)return '';
@@ -135,6 +145,35 @@ function fbTag(t){const f=feedbackFor(t.id);if(!f)return '';
   if(f.rc.status==='conflict')return `<span class="tag conf" title="${esc(f.rc.reason||'')}">you: ${esc(lbl)} · conflict</span>`;
   if(f.rc.status==='rejected')return `<span class="tag conf" title="${esc(f.rc.reason||'')}">you: ${esc(lbl)} · not applied</span>`;
   return ''}
+function commentsFor(id){const rc=(payload&&payload.board&&payload.board.feedback_receipts)||{};
+  return ((payload&&payload.feedback)||[]).filter(e=>e.task_id===id&&e.action==='comment').sort((x,y)=>String(x.recorded_at).localeCompare(String(y.recorded_at))).map(e=>({e,rc:rc[e.event_id]}))}
+function nextRun(){const b=payload&&payload.board;return b&&b.next_refresh_at?new Date(b.next_refresh_at).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'}):'the next curator run'}
+function commentTag(t){const cs=commentsFor(t.id);if(!cs.length)return '';const pend=cs.filter(c=>!c.rc).length;
+  return pend?`<span class="tag pend" title="Waiting for the curator's next run (${esc(nextRun())})">${pend} comment${pend>1?'s':''} · for review</span>`:`<span class="tag" title="Reviewed by the curator">comment reviewed</span>`}
+function cbtn(t){return payload&&payload.feedbackEnabled?`<button class="cbtn" data-comment="${esc(t.id)}" title="Leave a comment for the curator">Comment</button>`:''}
+function closeComment(){const p=document.getElementById('cbox');if(p)p.hidden=true}
+function openComment(id,anchor){const b=payload.board,t=(b.tasks||[]).find(x=>x.id===id);if(!t)return;
+  let p=document.getElementById('cbox');if(!p){p=document.createElement('div');p.id='cbox';document.body.appendChild(p)}
+  const cs=commentsFor(id);
+  p.innerHTML=`<div class="ht"><span class="dot" style="background:${color(b,t.area)};margin-right:6px"></span>${esc(t.title)}</div>
+    ${cs.map(c=>`<div class="cmt"><div>${esc(c.e.note)}</div><div class="sub">${esc(fmtTime(c.e.recorded_at))} · ${c.rc?`reviewed ${esc(fmtTime(c.rc.processed_at))}${c.rc.reply||c.rc.reason?' — '+esc(c.rc.reply||c.rc.reason):''}`:`for review at ${esc(nextRun())}`}</div></div>`).join('')}
+    <textarea id="ctext" placeholder="For example: already paid on Oct 25, or: waiting for my advisor's reply first"></textarea>
+    <div class="sub" style="margin:4px 0 8px">The curator reads this at its next run (${esc(nextRun())}). It doesn't change the status or edit your notes.</div>
+    <div style="display:flex;gap:6px;justify-content:flex-end"><button class="btn" id="ccancel">Cancel <kbd>Esc</kbd></button><button class="btn tb-todo" id="csave">Save comment <kbd>⌘↵</kbd></button></div>
+    <div class="err" id="cerr" hidden></div>`;
+  p.hidden=false;
+  const r=anchor?anchor.getBoundingClientRect():{left:innerWidth/2-170,bottom:120,top:120};const w=Math.min(360,innerWidth-16);p.style.width=w+'px';
+  const h=p.offsetHeight;let x=Math.min(Math.max(8,r.left),innerWidth-w-8),y=r.bottom+6;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-6);
+  p.style.left=x+'px';p.style.top=y+'px';
+  const ta=document.getElementById('ctext');ta.focus();
+  const save=()=>{const note=ta.value.trim();const er=document.getElementById('cerr');
+    if(!note){er.textContent='Write a comment first.';er.hidden=false;return}
+    if(!APP){er.textContent='Comments need the BoardBar app.';er.hidden=false;return}
+    window._pendingComment=true;post({feedback:{task_id:t.id,action:'comment',note,previous_state:t.state,snapshot_generated_at:b.generated_at}})};
+  ta.oninput=()=>{document.getElementById('cerr').hidden=true};
+  ta.onkeydown=ev=>{if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();closeComment()}else if(ev.key==='Enter'&&(ev.metaKey||ev.ctrlKey)){ev.preventDefault();save()}};
+  document.getElementById('csave').onclick=save;document.getElementById('ccancel').onclick=closeComment}
+
 function dueChip(t){
   const st=t.state;
   if(t.due){const n=diff(t.due);
@@ -149,13 +188,13 @@ function tags(t,noStatus){let s='';
   if(t.basis==='inference')s+='<span class="tag">inferred</span>';
   if(t.state==='unknown'&&!noStatus)s+='<span class="tag">status ?</span>';
   if(t.priority==='high')s+='<span class="tag">high</span>';
-  return s+fbTag(t)}
+  return s+fbTag(t)+commentTag(t)}
 function tip(t){const p=[];if(t.why)p.push(t.why);if(t.status_as_of)p.push('Status as of '+fmt(t.status_as_of));
   (t.sources||[]).forEach(s=>p.push('Source: '+s.ref+(s.date?' ('+fmt(s.date)+')':'')+(s.confidence?' · '+s.confidence:'')));
   if(t.note_path&&APP)p.push('Click to open in Obsidian');return esc(p.join('\n'))}
 function row(b,t,extra){return `<div class="row ${t.note_path&&APP?'link':''}" title="${tip(t)}" ${t.note_path&&APP?`data-note="${esc(t.note_path)}"`:''}>
   <span class="dot" style="background:${color(b,t.area)}"></span>
-  <div class="t">${esc(t.title)}${tags(t)}${extra||''}</div>${dueChip(t)}</div>`}
+  <div class="t">${esc(t.title)}${tags(t)}${extra||''}</div>${cbtn(t)}${dueChip(t)}</div>`}
 function healthBanner(h,b){
   if(!h||h.state==='ok')return '';
   return `<div class="banner ${h.state==='stale'?'warn':'bad'}">${esc(h.message||h.state)}${b?' · showing snapshot from '+fmtTime(b.generated_at):''}</div>`}
@@ -194,6 +233,7 @@ function hovTask(b,t){const when=t.due||t.event_at;
     `${t.state==='unknown'?'Status unknown':t.state}${t.status_as_of?' · as of '+fmt(t.status_as_of):''}${SUGG(t)?' · suggested, not committed':t.basis==='inference'?' · inferred':''}`,
     t.waiting_on?`Waiting on ${t.waiting_on}${t.since?' since '+fmt(t.since):''}`:'',
     t.why||'',
+    ...commentsFor(t.id).slice(-1).map(c=>`Your comment: ${c.e.note}${c.rc?' (reviewed)':' (for review)'}`),
     ...(t.sources||[]).map(s=>'Source: '+s.ref+(s.date?' · '+fmt(s.date):'')),
     t.note_path&&APP?'Click to open in Obsidian':''].filter(Boolean),note:t.note_path}}
 function timelineHTML(b,o){
@@ -294,7 +334,7 @@ function tableHTML(b){
   <div class="chips">${chips('area',fArea,[['all','All areas'],...Object.keys(b.areas||{}).map(a=>[a,areaLabel(b,a)])])}</div>
   <div class="chips">${chips('state',fState,states)}<span style="flex:1"></span>${chips('sort',fSort,[['due','By date'],['age','Oldest status'],['title','A–Z']])}</div>
   <div class="tr2 head"><span></span><span>Item</span><span>State</span><span style="text-align:right" title="Days since the state was last confirmed">Age</span><span style="text-align:right">Date</span><span>${fbOn?'Update':''}</span></div>
-  ${rows.map(t=>`<div class="tr2 ${t.note_path&&APP?'link':''}" title="${tip(t)}" ${t.note_path&&APP?`data-note="${esc(t.note_path)}"`:''}><span class="dot" style="background:${color(b,t.area)}"></span><span class="tt">${esc(t.title)}${tags(t,true)}</span><span class="st st-${esc(t.state)}">${esc(t.state==='unknown'?'status ?':t.state)}</span><span class="age">${t.status_as_of?(-diff(t.status_as_of))+'d':''}</span><span class="dd">${dueChip(t)}</span><span>${OPEN(t)||t.state==='done'?sel(t):''}</span></div>`).join('')||'<div class="empty">Nothing matches.</div>'}
+  ${rows.map(t=>`<div class="tr2 ${t.note_path&&APP?'link':''}" title="${tip(t)}" ${t.note_path&&APP?`data-note="${esc(t.note_path)}"`:''}><span class="dot" style="background:${color(b,t.area)}"></span><span class="tt">${esc(t.title)}${tags(t,true)}${cbtn(t)}</span><span class="st st-${esc(t.state)}">${esc(t.state==='unknown'?'status ?':t.state)}</span><span class="age">${t.status_as_of?(-diff(t.status_as_of))+'d':''}</span><span class="dd">${dueChip(t)}</span><span>${OPEN(t)||t.state==='done'?sel(t):''}</span></div>`).join('')||'<div class="empty">Nothing matches.</div>'}
   ${fbOn?'<div class="sub" style="margin-top:6px">Status updates go to the curator and apply at its next run. They don’t edit your notes.</div>':''}`}
 
 function coverageHTML(b){const c=b.coverage||[];if(!c.length)return '';
@@ -364,11 +404,12 @@ function vTriage(b){
       ${t.why?`<div style="font-size:14px;margin-bottom:10px">${esc(t.why)}</div>`:''}
       ${facts.map(f=>`<div class="hl sub" style="font-size:12.5px">${esc(f)}</div>`).join('')}
       ${(t.sources||[]).length?`<div class="sub" style="margin-top:8px">${(t.sources||[]).map(s=>esc(s.ref+(s.date?' · '+fmt(s.date):''))).join('<br>')}</div>`:''}
+      ${commentsFor(t.id).map(c=>`<div class="cmt"><div>${esc(c.e.note)}</div><div class="sub">your comment · ${c.rc?'reviewed':'for review at '+esc(nextRun())}</div></div>`).join('')}
       <div style="margin-top:12px;display:flex;gap:12px;align-items:center">${t.note_path&&APP?`<a class="ext" data-note="${esc(t.note_path)}">Open note <kbd>O</kbd></a>`:''}<a class="ext" data-act="tnote">${TR.note||TR.noteOpen?'Note':'Add a note'} <kbd>N</kbd></a></div>
       <textarea id="tnote" placeholder="Optional note for the curator, e.g. paid on Oct 25" ${TR.noteOpen||TR.note?'':'hidden'}>${esc(TR.note)}</textarea>
     </div>
     <div class="tbtns">${['cancelled','waiting','doing','done','todo'].map(a=>`<button class="btn tb tb-${a}" data-decide="${a}">${TACT[a][0]} <kbd>${TACT[a][1]}</kbd></button>`).join('')}</div>
-    <div class="tbtns" style="margin-top:6px"><button class="btn" data-act="tskip">Skip <kbd>→</kbd></button><button class="btn" data-act="tundo" ${TR.log.length?'':'disabled'}>Undo <kbd>⌘Z</kbd></button></div>
+    <div class="tbtns" style="margin-top:6px"><button class="btn" data-act="tcomment">Comment <kbd>C</kbd></button><button class="btn" data-act="tskip">Skip <kbd>→</kbd></button><button class="btn" data-act="tundo" ${TR.log.length?'':'disabled'}>Undo <kbd>⌘Z</kbd></button></div>
     <div class="sub" style="text-align:center;margin-top:10px">Swipe or drag right for still on, left to cancel</div>`}
   else{const tally={};TR.log.filter(l=>l.kind==='decide').forEach(l=>tally[l.e.action]=(tally[l.e.action]||0)+1);const sk=TR.log.filter(l=>l.kind==='skip').length;
     h+=`<div class="tcard" style="text-align:center;cursor:default"><div class="ttl">${n?'All caught up':'Nothing to review here'}</div>
@@ -391,6 +432,7 @@ function bindTriage(){const c=document.getElementById('tcard');
   let wt=null;
   c.parentElement.onwheel=ev=>{if(Math.abs(ev.deltaX)<=Math.abs(ev.deltaY))return;ev.preventDefault();c.style.transition='none';setDx(TR.dx-ev.deltaX);clearTimeout(wt);wt=setTimeout(release,140)}}
 document.addEventListener('keydown',ev=>{
+  if(ev.key==='Escape'){const p=document.getElementById('cbox');if(p&&!p.hidden){ev.preventDefault();return closeComment()}}
   const inField=!!(ev.target&&ev.target.closest&&ev.target.closest('textarea,input,select'));
   if(!TR){if(isFull()&&(ev.key==='t'||ev.key==='T')&&!ev.metaKey&&!inField){ev.preventDefault();startTriage()}return}
   if(inField)return;
@@ -402,7 +444,8 @@ document.addEventListener('keydown',ev=>{
   if(k==='ArrowRight'||k==='s'||k==='S'){ev.preventDefault();return skip()}
   if(k==='Escape'){ev.preventDefault();return endTriage()}
   if(k==='o'||k==='O'){const t=payload.board.tasks.find(x=>x.id===TR.queue[TR.i]);if(t&&t.note_path&&APP)post({open:t.note_path});return}
-  if(k==='n'||k==='N'){ev.preventDefault();TR.noteOpen=true;render()}});
+  if(k==='n'||k==='N'){ev.preventDefault();TR.noteOpen=true;render()}
+  if(k==='c'||k==='C'){ev.preventDefault();act('tcomment')}});
 
 function render(p){
   if(p)p=shiftFixture(p);
@@ -416,7 +459,7 @@ function render(p){
   if(full&&payload.triageRequest>TRseen){TRseen=payload.triageRequest;if(!TR)setTimeout(()=>startTriage(),0)}
   if(full)html+=TR?vTriage(b):vFull(b);
   else{const nd=(b.decisions||[]).length;
-    html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:600">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</span><span style="flex:1"></span><span class="sub">${openCount(b)}${nd?` · ${nd} decision${nd>1?'s':''}`:''}</span>${payload.feedbackEnabled!==false&&triagePool(b,'unknown').length?`<button class="iconbtn" data-act="triage" title="Review unconfirmed items one by one">Triage ${triagePool(b,'unknown').length}</button>`:''}<button class="iconbtn" data-act="expand" title="Open the full board (or double-click anywhere)">Expand ↗</button></div>`;
+    html+=`<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span style="font-size:15px;font-weight:600;white-space:nowrap">${new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span><span style="flex:1"></span><span class="sub">${openCount(b)}${nd?` · ${nd} decision${nd>1?'s':''}`:''}</span>${payload.feedbackEnabled!==false&&triagePool(b,'unknown').length?`<button class="iconbtn" data-act="triage" title="Review unconfirmed items one by one">Triage ${triagePool(b,'unknown').length}</button>`:''}<button class="iconbtn" data-act="expand" title="Open the full board (or double-click anywhere)">Expand ↗</button></div>`;
     html+=`<div class="tabs"><button data-tab="today" class="${tab==='today'?'on':''}">Today</button><button data-tab="timeline" class="${tab==='timeline'?'on':''}">Timeline</button></div>`;
     html+=tab==='timeline'?vTimeline(b):vToday(b)}
   app.innerHTML=html+(TR&&full?'':foot(b,h));bind();if(TR&&full)bindTriage();else layoutTimelines()}
@@ -434,18 +477,20 @@ function showHov(i,ev){const d=HOV[i];if(!d)return;const e=hov();
   e.style.left=Math.max(8,x)+'px';e.style.top=Math.max(8,y)+'px'}
 function toast(msg,err){let t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t)}
   t.textContent=msg;t.className=err?'err':'';t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,err?8000:3500)}
-window.feedbackResult=r=>{if(TR&&r&&r.ok)return;toast(r&&r.ok?'Saved. The curator applies it at its next run.':'Couldn’t save: '+((r&&r.error)||'unknown error'),!(r&&r.ok))};
+window.feedbackResult=r=>{if(window._pendingComment){window._pendingComment=false;if(r&&r.ok){closeComment();return toast('Comment saved. The curator reviews it at '+nextRun()+'.')}const er=document.getElementById('cerr');if(er){er.textContent='Couldn’t save: '+((r&&r.error)||'unknown error');er.hidden=false}return}if(TR&&r&&r.ok)return;toast(r&&r.ok?'Saved. The curator applies it at its next run.':'Couldn’t save: '+((r&&r.error)||'unknown error'),!(r&&r.ok))};
 
 function expand(){if(APP&&window.BOARD_MODE!=='full')post({act:'expand'});else{localFull=true;render()}}
 function act(a){if(a==='expand')return expand();if(a==='collapse'){localFull=false;return render()}
   if(a==='triage'){if(isFull())return startTriage();if(APP)return post({act:'triage'});localFull=true;return startTriage()}
   if(a==='endtriage')return endTriage();if(a==='tskip')return skip();if(a==='tundo')return undo();if(a==='tnote'){TR.noteOpen=true;return render()}
+  if(a==='tcomment'){const id=TR.queue[TR.i];if(id)openComment(id,document.getElementById('tcard'));return}
   post({act:a})}
 function bind(){
   document.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>{tab=e.dataset.tab;try{localStorage.setItem('tab',tab)}catch(x){}render()});
-  document.querySelectorAll('[data-note]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('select'))return;post({open:e.dataset.note})});
+  document.querySelectorAll('[data-note]').forEach(e=>e.onclick=ev=>{if(ev.target.closest('select,.cbtn'))return;post({open:e.dataset.note})});
   document.querySelectorAll('[data-url]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();APP?post({url:e.dataset.url}):window.open(e.dataset.url,'_blank','noopener')});
   document.querySelectorAll('[data-act]').forEach(e=>e.onclick=()=>act(e.dataset.act));
+  document.querySelectorAll('[data-comment]').forEach(e=>e.onclick=ev=>{ev.stopPropagation();openComment(e.dataset.comment,e)});
   document.querySelectorAll('[data-f]').forEach(e=>e.onclick=()=>{const v=e.dataset.v;if(e.dataset.f==='area')fArea=v;else if(e.dataset.f==='state')fState=v;else fSort=v;render()});
   document.querySelectorAll('[data-hi]').forEach(e=>{e.onmousemove=ev=>showHov(+e.dataset.hi,ev);e.onmouseleave=hideHov;
     const d=HOV[+e.dataset.hi];if(d&&d.note&&APP)e.onclick=()=>post({open:d.note})});
@@ -453,6 +498,7 @@ function bind(){
     const b=payload.board,t=(b.tasks||[]).find(x=>x.id===s.dataset.task);s.value='';
     if(!APP){toast('Status updates need the BoardBar app.',true);return}
     post({feedback:{task_id:t.id,action:a,previous_state:t.state,snapshot_generated_at:b.generated_at,note:''}})}})}
+document.addEventListener('mousedown',e=>{const p=document.getElementById('cbox');if(p&&!p.hidden&&e.target.closest&&!e.target.closest('#cbox,.cbtn,[data-act="tcomment"]'))closeComment()});
 document.addEventListener('dblclick',e=>{if(!TR&&!isFull()&&e.target.closest&&!e.target.closest('.row,.hb,button,a,summary,.mk,select'))expand()});
 let wasFull=null;addEventListener('resize',()=>{if(!payload)return;const f=isFull();if(!window.BOARD_MODE&&f!==wasFull){wasFull=f;render()}else layoutTimelines()});
 window.render=render;

@@ -343,6 +343,11 @@
       "status": "conflict",
       "processed_at": "2026-10-14T07:00:00-04:00",
       "reason": "A newer email asks to move office hours again"
+    },
+    "5d1f2c3a-0000-4000-8000-000000000003": {
+      "status": "acknowledged",
+      "processed_at": "2026-10-14T07:00:00-04:00",
+      "reply": "Noted. I'll keep the rebuttal due date and watch for the co-author's edits."
     }
   }
 }
